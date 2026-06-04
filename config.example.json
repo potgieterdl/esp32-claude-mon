@@ -7,7 +7,9 @@
   "proxy": {
     "url": "http://YOUR_PROXY_HOST:7890/usage",
     "token": "YOUR_SHARED_TOKEN",
-    "session_key": "sk-ant-sid01-PASTE_YOUR_CLAUDE_AI_COOKIE",
+    "_auth_note": "PREFERRED: install Claude Code, run `claude` + sign in, then `node proxy/get_token.js` — it fills proxy.oauth_token below (an auto-refreshing token, no recurring chore). FALLBACK: paste a claude.ai session_key cookie instead (expires every few days).",
+    "oauth_token": null,
+    "session_key": "",
     "poll_seconds": 60
   },
   "device": {

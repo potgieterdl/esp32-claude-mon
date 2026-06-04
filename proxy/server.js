@@ -12,6 +12,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fetchUsage } from "./claude.js";
+import { fetchUsageOAuth, initOAuth, hasToken, setToken } from "./claude_oauth.js";
 
 // ── config: the repo-root config.json (single source for the whole project), with env override ──
 // Reads the `proxy` section of config.json. Looked up via $CONFIG_FILE, then ../config.json
@@ -47,6 +48,16 @@ const KEY_CFG       = cfg.session_key || "";
 // Optional: pin the org UUID to skip the /api/organizations lookup.
 const ORG_ID        = (process.env.CLAUDE_ORG_ID || cfg.org_id || "").trim();
 
+// OAuth path (preferred): seeded once from config.json's proxy.oauth_token, then
+// kept live in a writable store file the proxy refreshes in place. If no OAuth
+// token is configured, we fall back to the legacy sessionKey path (claude.js).
+const OAUTH_STORE   = process.env.OAUTH_STORE_FILE ||
+                      path.resolve(process.cwd(), "oauth_token.json");
+const useOAuth = initOAuth({ storeFile: OAUTH_STORE, seed: cfg.oauth_token });
+console.log(useOAuth
+  ? `[proxy] auth: OAuth token (store ${OAUTH_STORE})`
+  : "[proxy] auth: legacy sessionKey (no oauth_token configured)");
+
 if (!TOKEN) {
   console.error("[proxy] FATAL: PROXY_TOKEN is not set. Refusing to start (would be an open endpoint).");
   process.exit(1);
@@ -72,14 +83,21 @@ let lastAttempt = 0;     // epoch seconds of last upstream attempt
 
 async function poll() {
   lastAttempt = Math.floor(Date.now() / 1000);
-  const key = readSessionKey();
-  if (!key) {
-    lastError = "no session key configured";
-    console.warn("[proxy] poll skipped: " + lastError);
-    return;
-  }
   try {
-    const data = await fetchUsage({ sessionKey: key, orgId: ORG_ID });
+    let data;
+    if (hasToken()) {
+      // Preferred: OAuth token → api.anthropic.com (auto-refreshing, no cookie chore).
+      data = await fetchUsageOAuth();
+    } else {
+      // Fallback: legacy sessionKey cookie → claude.ai (behind Cloudflare).
+      const key = readSessionKey();
+      if (!key) {
+        lastError = "no auth configured (set proxy.oauth_token or session_key)";
+        console.warn("[proxy] poll skipped: " + lastError);
+        return;
+      }
+      data = await fetchUsage({ sessionKey: key, orgId: ORG_ID });
+    }
     cache = data;
     lastError = null;
     console.log(`[proxy] ok  5h=${data.five_hour.used_pct}%  weekly=${data.weekly.used_pct}%  plan=${data.plan}`);
@@ -105,6 +123,22 @@ function authorized(req) {
   return h === `Bearer ${TOKEN}`;
 }
 
+// Read a small JSON request body (bounded — the token blob is < 4 KB).
+function readJsonBody(req, maxBytes = 16 * 1024) {
+  return new Promise((resolve, reject) => {
+    let buf = "";
+    req.on("data", (c) => {
+      buf += c;
+      if (buf.length > maxBytes) { reject(new Error("body too large")); req.destroy(); }
+    });
+    req.on("end", () => {
+      try { resolve(buf ? JSON.parse(buf) : {}); }
+      catch (e) { reject(new Error("invalid JSON body")); }
+    });
+    req.on("error", reject);
+  });
+}
+
 const server = http.createServer((req, res) => {
   const url = (req.url || "/").split("?")[0];
 
@@ -113,10 +147,25 @@ const server = http.createServer((req, res) => {
     return send(res, 200, {
       ok: cache != null,
       has_cache: cache != null,
+      auth: hasToken() ? "oauth" : "session",
       last_error: lastError,
       last_attempt: lastAttempt,
       poll_seconds: POLL_SECONDS,
     });
+  }
+
+  // Live token re-seed (authed): the local get_token.js posts a fresh OAuth blob
+  // here so a dead/expired token is fixed in real time — no restart, no redeploy.
+  if (req.method === "POST" && url === "/token") {
+    if (!authorized(req)) return send(res, 401, { error: "unauthorized" });
+    return readJsonBody(req).then((body) => {
+      if (!setToken(body)) {
+        return send(res, 400, { error: "missing refreshToken in body" });
+      }
+      console.log("[proxy] oauth token replaced via POST /token");
+      poll();   // fetch immediately with the new token
+      return send(res, 200, { ok: true, auth: "oauth" });
+    }).catch((e) => send(res, 400, { error: String(e.message || e) }));
   }
 
   if (req.method === "GET" && url === "/usage") {

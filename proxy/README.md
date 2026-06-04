@@ -17,11 +17,49 @@ polls the proxy over Wi-Fi.
 
 - Node 22, **zero npm dependencies** (built-in `fetch` + `http`).
 - Caches upstream so many device polls never hit claude.ai.
-- Session key is refreshable **without rebuilding** the image.
+- Two auth modes — pick one:
+
+| Mode | How | Upkeep |
+|---|---|---|
+| **OAuth token** *(recommended)* | reuse a Claude Code login; `proxy/get_token.js` seeds it | **auto-refreshing** — set once, no recurring chore |
+| **claude.ai session key** *(fallback)* | paste the `sessionKey` cookie from DevTools | expires in days; manual re-paste |
+
+The OAuth path talks to `api.anthropic.com` (the same endpoint Claude Code's own usage display uses) instead of the Cloudflare-fronted `claude.ai`, and **auto-refreshes**, so it kills the manual cookie chore.
 
 ---
 
-## 1. Get your claude.ai session key
+## Recommended: OAuth token (no recurring chore)
+
+The proxy reuses a **Claude Code** login. You authenticate Claude Code once on any machine, run a
+small script that copies the token into `config.json`, and the proxy refreshes it forever after.
+
+1. **Install Claude Code and sign in** (with your Claude subscription, not an API key):
+   ```bash
+   npm i -g @anthropic-ai/claude-code   # or your installer of choice
+   claude                               # then complete the browser sign-in
+   ```
+2. **Seed the token** — run on the machine where you just signed in:
+   ```bash
+   node proxy/get_token.js              # reads the local Claude Code creds → writes proxy.oauth_token
+   ```
+   It writes the token blob (`accessToken` + `refreshToken` + `expiresAt` + `rateLimitTier`) into the
+   repo-root `config.json` and, if a proxy is already running, **pushes it live** to `POST /token`.
+   - `--no-push` to only update `config.json`; `--no-config` to only push to a running proxy.
+   - macOS keeps the credential in the Keychain (not a file) — the script reads it either way.
+3. **Deploy/restart** the proxy (see *Run* below). It auto-refreshes the access token (~8 h lifetime)
+   using the refresh token, persisting the rotating token in a Docker volume — so it stays live unattended.
+
+**If the token ever fully dies** (e.g. you signed out everywhere, or it sat unused too long), the device
+flags it; just re-run `node proxy/get_token.js` and it pushes a fresh token to the running proxy in real
+time — no restart, no redeploy.
+
+> **Heads-up — token rotation:** refresh tokens *rotate* on each refresh. Run the proxy on a host where
+> you're **not** actively using that same Claude Code login (a Pi/server), or the two will rotate each
+> other out. The re-seed loop above recovers it either way.
+
+---
+
+## Fallback: get your claude.ai session key
 
 1. Log in to <https://claude.ai> in a desktop browser.
 2. Open **DevTools → Application (Chrome) / Storage (Firefox) → Cookies →
@@ -121,11 +159,16 @@ Requires header `Authorization: Bearer <PROXY_TOKEN>`.
   session key invalid/expired). The device should keep showing its last value
   and flag offline/stale.
 
-**`GET /health`** (no token) — for setup/monitoring:
+**`GET /health`** (no token) — for setup/monitoring. `auth` is the active mode (`oauth` | `session`):
 
 ```json
-{ "ok": true, "has_cache": true, "last_error": null, "last_attempt": 1769896400, "poll_seconds": 60 }
+{ "ok": true, "has_cache": true, "auth": "oauth", "last_error": null, "last_attempt": 1769896400, "poll_seconds": 60 }
 ```
+
+**`POST /token`** (header `Authorization: Bearer <PROXY_TOKEN>`) — hot-swap the OAuth token live, used by
+`get_token.js`. Body is the token blob `{ accessToken, refreshToken, expiresAt, rateLimitTier? }`. Returns
+`200 {"ok":true,"auth":"oauth"}`, or `400` if `refreshToken` is missing, `401` if the bearer is wrong.
+The proxy writes it to its store and re-polls immediately — fixing an expired token without a restart.
 
 ---
 

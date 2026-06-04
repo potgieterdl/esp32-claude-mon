@@ -10,12 +10,18 @@ services:
       CONFIG_FILE: /app/config.json
     volumes:
       # The single project config.json (repo root, one level up). The proxy reads its `proxy`
-      # section (token / session_key / poll_seconds). Refresh the session key by editing this
-      # file + `docker compose restart` — no rebuild. (Env vars still override if you set them.)
+      # section (token / oauth_token / session_key / poll_seconds). It's mounted READ-ONLY —
+      # the OAuth token rotates at runtime, so the live copy lives in the volume below, not here.
       - ../config.json:/app/config.json:ro
+      # Persists the live, auto-refreshing OAuth token (the rotating refresh token) across
+      # restarts. Without this the proxy re-seeds from config.json's oauth_token each restart.
+      - claude-oauth:/data
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  claude-oauth:

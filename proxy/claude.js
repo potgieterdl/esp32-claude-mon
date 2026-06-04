@@ -56,7 +56,8 @@ async function getJSON(path, sessionKey) {
 }
 
 // ── helpers to normalise claude.ai's shape into OUR contract ────────────────
-function epoch(v) {
+// Exported so the OAuth path (claude_oauth.js) reuses the exact same normalisation.
+export function epoch(v) {
   if (v == null) return null;
   if (typeof v === "number") return v > 1e12 ? Math.floor(v / 1000) : v; // ms or s
   const t = Date.parse(v); // ISO 8601
@@ -65,7 +66,7 @@ function epoch(v) {
 
 // claude.ai expresses utilization as either 0..1 or 0..100 depending on field;
 // clamp to an integer percent either way.
-function pct(v) {
+export function pct(v) {
   if (v == null) return 0;
   let n = Number(v);
   if (Number.isNaN(n)) return 0;
@@ -75,7 +76,7 @@ function pct(v) {
 
 // Pull a window {used_pct, resets_at} out of claude.ai's object, tolerating the
 // handful of field names community tools have observed across versions.
-function window_(o) {
+export function window_(o) {
   if (!o || typeof o !== "object") return { used_pct: 0, resets_at: null };
   const used =
     o.utilization ?? o.used ?? o.usage ?? o.used_pct ?? o.percent ?? o.value;

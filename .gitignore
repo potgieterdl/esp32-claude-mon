@@ -16,6 +16,7 @@ firmware/data/config.json
 # Proxy secrets (use .env.example as the template)
 proxy/.env
 proxy/session_key
+proxy/oauth_token.json
 proxy/node_modules/
 
 # Claude Code personal/local settings (holds a private env id, machine-specific).
