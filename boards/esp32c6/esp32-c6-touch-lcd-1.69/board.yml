@@ -1,0 +1,22 @@
+# Machine-readable board metadata (capabilities + build identity).
+# Scales to N devices: one of these per boards/<arch>/<slug>/. SPEC.md is the human doc.
+slug: esp32-c6-touch-lcd-1.69
+name: Waveshare ESP32-C6-Touch-LCD-1.69
+arch: esp32c6
+status: supported            # supported | experimental | planned
+vendor: Waveshare
+product_url: https://www.waveshare.com/wiki/ESP32-C6-Touch-LCD-1.69
+
+mcu: ESP32-C6
+flash_mb: 8
+psram: false
+platformio_board: esp32-c6-devkitc-1
+platformio_env: esp32-c6     # firmware/platformio.ini [env:...]; rename to the slug when a 2nd board lands
+
+display: { driver: ST7789V2, res: 240x280, type: IPS, row_offset: 20, rgb_order: true }
+touch: { driver: CST816T, bus: i2c }
+peripherals: [qmi8658_imu, pcf85063_rtc, es8311_audio]
+
+capabilities: [display, touch, wifi, ble, audio, rtc, battery]
+# Device-adapter contract this board implements (firmware/src/ glue):
+adapter: { display: true, touch: true, backlight: true, battery: true, audio: true, rtc: true }

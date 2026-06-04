@@ -1,0 +1,34 @@
+# PlatformIO build output
+**/.pio/
+
+# Large vendored/reference trees (reproducible; not source)
+vendor/
+docs/demo/
+docs/*.zip
+
+# Simulator render output
+experiments/sim/out/
+
+# Local secrets — ONE file: copy config.example.json -> config.json and fill it in.
+/config.json
+firmware/data/config.json
+
+# Proxy secrets (use .env.example as the template)
+proxy/.env
+proxy/session_key
+proxy/node_modules/
+
+# Claude Code personal/local settings (holds a private env id, machine-specific).
+# Shared Claude config IS checked in on purpose: .claude/settings.json + .claude/rules/*.md
+.claude/settings.local.json
+**/settings.local.json
+
+# Built firmware images embed compiled-in secrets (wifi creds) — keep local only
+firmware/releases/*.bin
+
+# Build logs (machine-specific paths)
+*.log
+
+# OS / editor
+Thumbs.db
+.DS_Store

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ESP32-C6 Claude Monitor — UI Mockup (280×240 landscape)</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15130F;          /* near-black warm */
+    --panel:#1E1B16;
+    --ink:#EDE7DB;         /* off-white */
+    --dim:#8C8576;         /* muted label */
+    --coral:#D97757;       /* Claude accent */
+    --coral-d:#B65C40;
+    --green:#7FB069;
+    --amber:#E0A458;
+    --red:#D9534F;
+    --track:#322D25;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0c0b09;color:var(--ink);font-family:Inter,system-ui,sans-serif;
+       padding:28px;display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start}
+  h1{width:100%;font-weight:600;font-size:18px;color:#cfc8ba;margin-bottom:-6px}
+  .sub{width:100%;color:#6f6a5e;font-size:13px;margin-bottom:8px}
+
+  /* device panel — true 280x240, scaled 2x for viewing */
+  .device{transform:scale(2);transform-origin:top left;margin:0 240px 200px 0}
+  .screen{width:280px;height:240px;background:var(--bg);border-radius:14px;
+          position:relative;overflow:hidden;font-family:Oswald,sans-serif;
+          box-shadow:0 0 0 3px #000, 0 0 0 9px #2a2a2a;}
+  .cap{position:absolute;left:0;right:0;bottom:-26px;text-align:center;
+       font-family:Inter;font-size:11px;color:#777;transform:scale(.5);transform-origin:top center}
+
+  /* top status bar */
+  .top{display:flex;align-items:center;justify-content:space-between;
+       padding:7px 12px 0 12px}
+  .brand{font-weight:600;letter-spacing:2px;font-size:13px;color:var(--coral)}
+  .badge{font-size:10px;letter-spacing:1px;color:var(--bg);background:var(--coral);
+         padding:2px 7px;border-radius:8px;font-weight:600}
+  .net{display:flex;align-items:center;gap:5px;font-family:Inter;font-size:10px;color:var(--dim)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+       box-shadow:0 0 6px var(--green)}
+
+  /* main split */
+  .body{display:flex;height:200px;padding:6px 12px 0 12px;gap:12px}
+
+  /* ring gauge */
+  .ringwrap{width:120px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring{width:118px;height:118px;border-radius:50%;
+        background:conic-gradient(var(--coral) calc(var(--p)*1%), var(--track) 0);
+        display:flex;align-items:center;justify-content:center;position:relative}
+  .ring::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--bg)}
+  .ringtxt{position:relative;text-align:center;z-index:1}
+  .ringtxt .pct{font-size:38px;font-weight:600;line-height:.9}
+  .ringtxt .pl{font-size:11px;color:var(--dim);letter-spacing:1px}
+  .ringcap{font-family:Inter;font-size:10px;letter-spacing:2px;color:var(--dim);margin-top:6px}
+
+  /* right column */
+  .col{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px}
+  .reslbl{font-family:Inter;font-size:10px;letter-spacing:2px;color:var(--dim)}
+  .restime{font-size:42px;font-weight:600;line-height:.95;color:var(--ink)}
+  .resat{font-family:Inter;font-size:11px;color:var(--dim)}
+  .sep{height:1px;background:var(--track);margin:8px 0 6px}
+  .wk{font-family:Inter;font-size:11px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:4px}
+  .wk b{color:var(--ink);font-weight:600}
+  .bar{height:8px;background:var(--track);border-radius:5px;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:5px;background:var(--amber)}
+
+  /* dots nav */
+  .dots{position:absolute;bottom:7px;left:0;right:0;display:flex;gap:5px;justify-content:center}
+  .dots span{width:5px;height:5px;border-radius:50%;background:#403a30}
+  .dots .on{background:var(--coral);width:14px;border-radius:3px}
+
+  /* weekly screen */
+  .big-c{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:2px}
+  .weekring{width:130px;height:130px;border-radius:50%;
+            background:conic-gradient(var(--amber) calc(var(--p)*1%), var(--track) 0);
+            display:flex;align-items:center;justify-content:center;position:relative}
+  .weekring::after{content:"";position:absolute;inset:12px;border-radius:50%;background:var(--bg)}
+  .days{display:flex;gap:5px;align-items:flex-end;height:46px;font-family:Inter}
+  .days div{width:14px;background:var(--coral);border-radius:2px;opacity:.85}
+
+  /* clock screen */
+  .clock{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+  .time{font-size:76px;font-weight:300;line-height:.9;letter-spacing:1px}
+  .date{font-family:Inter;font-size:14px;color:var(--dim);letter-spacing:3px;margin-top:6px}
+</style>
+</head>
+<body>
+  <h1>ESP32-C6 Claude Monitor — UI mockup</h1>
+  <div class="sub">True size 280×240 (landscape), shown 2×. Dark theme · Claude coral accent · condensed type. Swipe left/right between screens.</div>
+
+  <!-- SCREEN 1: SESSION -->
+  <div class="device"><div class="screen">
+    <div class="top">
+      <span class="brand">CLAUDE</span>
+      <span class="badge">MAX 20×</span>
+      <span class="net"><span class="dot"></span>WI-FI</span>
+    </div>
+    <div class="body">
+      <div class="ringwrap">
+        <div class="ring" style="--p:68">
+          <div class="ringtxt"><div class="pct">68<span style="font-size:18px">%</span></div><div class="pl">USED</div></div>
+        </div>
+        <div class="ringcap">5-HOUR WINDOW</div>
+      </div>
+      <div class="col">
+        <div class="reslbl">RESETS IN</div>
+        <div class="restime">2:14</div>
+        <div class="resat">at 4:30 PM · 18,240 / 27k tokens</div>
+        <div class="sep"></div>
+        <div class="wk"><span>WEEKLY</span><b>41%</b></div>
+        <div class="bar"><i style="width:41%"></i></div>
+        <div class="wk" style="margin-top:3px"><span>resets Mon 09:00</span></div>
+      </div>
+    </div>
+    <div class="dots"><span class="on"></span><span></span><span></span></div>
+  </div><div class="cap">① SESSION — 5-hour rolling window (primary)</div></div>
+
+  <!-- SCREEN 2: WEEKLY -->
+  <div class="device"><div class="screen">
+    <div class="top">
+      <span class="brand">CLAUDE</span>
+      <span class="badge">WEEKLY</span>
+      <span class="net"><span class="dot"></span>WI-FI</span>
+    </div>
+    <div class="body">
+      <div class="ringwrap" style="width:140px">
+        <div class="weekring" style="--p:41">
+          <div class="ringtxt"><div class="pct">41<span style="font-size:18px">%</span></div><div class="pl">OF WEEKLY</div></div>
+        </div>
+        <div class="ringcap">resets MON 09:00 · 4d left</div>
+      </div>
+      <div class="col">
+        <div class="reslbl">LAST 7 DAYS</div>
+        <div class="days" style="margin:6px 0">
+          <div style="height:60%"></div><div style="height:85%"></div><div style="height:40%"></div>
+          <div style="height:95%"></div><div style="height:30%"></div><div style="height:15%"></div><div style="height:55%"></div>
+        </div>
+        <div class="wk"><span>M T W T F S S</span></div>
+        <div class="sep"></div>
+        <div class="wk"><span>PEAK DAY</span><b>Thu</b></div>
+        <div class="wk"><span>AVG / DAY</span><b>5.8%</b></div>
+      </div>
+    </div>
+    <div class="dots"><span></span><span class="on"></span><span></span></div>
+  </div><div class="cap">② WEEKLY — cap usage + 7-day trend</div></div>
+
+  <!-- SCREEN 3: CLOCK -->
+  <div class="device"><div class="screen">
+    <div class="top">
+      <span class="brand">CLAUDE</span>
+      <span class="badge" style="background:var(--track);color:var(--dim)">CLOCK</span>
+      <span class="net"><span class="dot"></span>WI-FI</span>
+    </div>
+    <div class="clock">
+      <div class="time">14:32</div>
+      <div class="date">TUE 02 JUN 2026</div>
+      <div class="wk" style="margin-top:18px;gap:18px"><span>◷ next reset 4:30 PM</span><span>21.4°C</span></div>
+    </div>
+    <div class="dots"><span></span><span></span><span class="on"></span></div>
+  </div><div class="cap">③ CLOCK — time/date (RTC+NTP), weather later</div></div>
+
+</body>
+</html>

@@ -1,0 +1,33 @@
+#pragma once
+#include <Arduino.h>
+// Runtime settings (Feature F0/F3) — the device keeps a config.json on its LittleFS, editable
+// over the LAN via GET/PUT /config.json. Precedence: compiled defaults (CFG_* defines injected from
+// the repo-root config.json by firmware/load_config.py)  <-  device config.json  <-  live PUT edits.
+//
+// The compiled CFG_* values are always the FALLBACK, so a missing or malformed device config.json
+// can never lock the device off the network — it just boots on the built-in creds.
+
+struct AppSettings {
+  // — secrets (fallback to compiled CFG_* defaults from config.json) —
+  char     wifi_ssid[33];
+  char     wifi_pass[65];
+  char     proxy_url[128];
+  char     proxy_token[97];
+  // — tuning —
+  uint16_t poll_seconds;     // device -> proxy poll cadence
+  uint8_t  warn_pct;         // usage % that triggers the soft 2-note chime
+  uint8_t  max_pct;          // usage % that triggers the reset/maxed chime
+  // — time —
+  char     tz[48];           // POSIX TZ string (e.g. Ireland "GMT0IST,M3.5.0/1,M10.5.0")
+  // — display —
+  uint8_t  brightness;       // 0..100 active backlight level
+  bool     dim_on_idle;      // auto-dim the backlight when there's been no touch
+  uint16_t dim_after_s;      // idle seconds before dimming
+  uint8_t  dim_brightness;   // 0..100 dimmed level (used only when dim_on_idle)
+};
+
+void          settings_begin();        // mount LittleFS, load config.json (seed from defaults if absent)
+AppSettings  &settings();              // mutable global accessor
+bool          settings_save();         // serialize current settings -> /config.json
+String        settings_to_json();      // serialize current settings to a JSON string (GET body)
+bool          settings_apply_json(const String &body, String &err);  // merge JSON over current + save

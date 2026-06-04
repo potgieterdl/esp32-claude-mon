@@ -1,0 +1,14 @@
+{
+  "name": "claude-usage-proxy",
+  "version": "0.1.0",
+  "description": "LAN proxy that fetches claude.ai subscription usage (5h/weekly window %, resets, plan) and serves it as JSON to the ESP32-C6 Claude monitor.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

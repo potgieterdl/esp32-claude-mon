@@ -1,0 +1,10 @@
+{
+    "name": "claude_ui",
+    "version": "0.1.0",
+    "description": "Portable LVGL UI for the ESP32-C6 Claude monitor (shared by firmware + simulator)",
+    "frameworks": "*",
+    "platforms": "*",
+    "build": {
+        "srcDir": "."
+    }
+}
