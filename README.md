@@ -8,17 +8,28 @@ Usage data comes from a small self-hosted **proxy** (Docker) that reads your cla
 serves it to the device over your LAN (the ESP32 can't reach claude.ai directly — Cloudflare blocks
 its TLS fingerprint).
 
-**Hardware:** ESP32-C6 (RISC-V, WiFi 6 / BLE) · 1.69″ ST7789V2 240×280 IPS · CST816T touch ·
-ES8311 audio · PCF85063 RTC. Full pinout & gotchas →
+## Features
+- **Live Claude usage** — 5-hour and weekly limit rings with live reset countdowns, pulled from the proxy.
+- **Swipeable screens** — **Session** (5h ring + countdown + weekly bar) · **Weekly** (ring + 7-day bars) ·
+  **Clock** (time/date + next reset) · **Device** (wifi/ip/proxy/battery/heap/firmware). Boots to the clock,
+  then slides to Session once connected.
+- **Honest display** — keeps the last reading through brief WiFi blips, blanks to `--` when truly offline
+  (never fake numbers), and the ring **drains to zero** when a usage window resets.
+- **WiFi** — auto-(re)connects in the background to reach the proxy; survives drops without nuking the screen.
+- **Smooth UI on a single core** — fluid swipes/animations via **LovyanGFX async-DMA + double buffering at
+  80 MHz SPI**, getting the most out of the single-core ESP32-C6.
+- **One-file config** — WiFi, proxy, alert thresholds, timezone, brightness and dim-on-idle all in
+  `config.json`; tweak the device's settings live over the LAN, no reflash.
+- **Audio alerts** — soft chimes at usage thresholds (ES8311 codec).
+- **Real clock** — NTP + on-board RTC, timezone-aware, with live reset countdowns.
+- **Wireless + USB updates** — flash over WiFi (OTA) or cable.
+- **Desktop simulator** — preview the UI as PNGs with no hardware.
+
+## Hardware
+**Waveshare ESP32-C6-Touch-LCD-1.69** — ESP32-C6 (RISC-V, WiFi 6 / BLE) · 1.69″ ST7789V2 240×280 IPS ·
+CST816T touch · ES8311 audio · PCF85063 RTC. Canonical pinout, quirks & flashing →
 [`boards/esp32c6/esp32-c6-touch-lcd-1.69/SPEC.md`](boards/esp32c6/esp32-c6-touch-lcd-1.69/SPEC.md).
-
-## Screens (swipe left/right)
-**Session** — 5h usage ring + reset countdown + weekly bar · **Weekly** — ring + 7-day bars ·
-**Clock** — NTP + RTC time/date · **Device** — wifi/ip/proxy/battery/heap/firmware.
-
-Boots on the Clock screen, then slides to Session once connected with live data. Usage shows `--`
-(never stale mock numbers) when offline/no-data, keeps the last value across brief WiFi drops, and
-the ring **drains to zero** when a usage window resets.
+The repo is structured so [more boards](boards/README.md) can be added (portable UI + per-device adapter).
 
 ## First-time setup
 **One config file for everything:** `cp config.example.json config.json` and fill it in (WiFi, proxy
@@ -120,11 +131,12 @@ verify no secrets are tracked — see [`CLAUDE.md`](CLAUDE.md) → *Secrets & pu
 | `experiments/sim/` | Desktop simulator → renders the UI to PNG, no hardware needed |
 | `boards/` | Per-device hardware specs (one folder per board; scales to more devices) |
 | `proxy/` | Dockerized claude.ai → usage-JSON proxy (runs on a server/Pi) |
+| `adr/` | Architecture Decision Records — the *why* behind key choices |
 | `docs/` | `ARCHITECTURE.md`, schematic PDF, design mockups (`perf-notes`/`research-notes` are historical) |
 | `vendor/` | Upstream Waveshare + lcars-esp32 reference repos (gitignored) |
-| `CLAUDE.md` · `todo.md` | Dev notes / workflow · build plan / roadmap |
+| `CLAUDE.md` · `todo.md` | Dev workflow · roadmap (what's next) |
 
 ## More
 Hardware spec → **[`boards/…/SPEC.md`](boards/esp32c6/esp32-c6-touch-lcd-1.69/SPEC.md)** ·
-architecture → **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** ·
-roadmap/status → **[`todo.md`](todo.md)** · dev workflow & flashing recipes → **[`CLAUDE.md`](CLAUDE.md)**.
+architecture → **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** · decisions → **[`adr/`](adr/README.md)** ·
+roadmap → **[`todo.md`](todo.md)** · dev workflow & flashing recipes → **[`CLAUDE.md`](CLAUDE.md)**.

@@ -1,7 +1,8 @@
 # Architecture
 
 How the project is structured and the few decisions that must not be undone. Hardware facts live per-board
-in [`boards/`](../boards/README.md); this doc is the app/software view.
+in [`boards/`](../boards/README.md); the *why* behind key choices lives in [`adr/`](../adr/README.md);
+this doc is the app/software view.
 
 ## Two layers: portable core + device adapter
 - **Portable core — `ui/`** (LVGL only, no hardware). Builds the 4 screens + splash; live data enters via

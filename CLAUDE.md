@@ -3,12 +3,15 @@
 Desk status display on a **Waveshare ESP32-C6-Touch-LCD-1.69**: shows my Claude usage limits + next reset,
 with swipe between screens (clock, device status; later weather). LVGL UI, live data from a self-hosted proxy.
 
-> **Map of the docs (single source of truth each — don't duplicate):**
-> - **Hardware** (pins, quirks, flashing-per-board) → [`boards/<arch>/<slug>/SPEC.md`](boards/README.md)
-> - **App architecture** (portable core ↔ device adapter, render path, modules) → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-> - **Roadmap / feature status** → [`todo.md`](todo.md) · **Proxy** → [`proxy/README.md`](proxy/README.md)
-> - **User-facing overview / setup** → [`README.md`](README.md) · **Rollback / build history** → [`firmware/releases/README.md`](firmware/releases/README.md)
-> Folder-scoped working rules auto-load from [`.claude/rules/`](.claude/rules) when you edit `firmware/`, `ui/`, or `proxy/`.
+> **Read the docs in this order (single source of truth each — don't duplicate):**
+> 1. **[`README.md`](README.md)** FIRST — what the app is, its delivered **Features**, hardware, setup.
+> 2. **[`todo.md`](todo.md)** — the roadmap (only what's left to build).
+> 3. Then whatever's relevant: **[`adr/`](adr/README.md)** (why key decisions were made) ·
+>    **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** (portable core ↔ device adapter, render path, modules) ·
+>    **hardware** → [`boards/<arch>/<slug>/SPEC.md`](boards/README.md) · **proxy** → [`proxy/README.md`](proxy/README.md) ·
+>    **rollback / build history** → [`firmware/releases/README.md`](firmware/releases/README.md).
+> Folder-scoped rules auto-load from [`.claude/rules/`](.claude/rules) when you edit `firmware/`, `ui/`, or `proxy/`
+> (incl. the **release checklist** that moves shipped features todo→README and pushes `main`).
 
 ## Repo layout
 - `ui/` — **portable LVGL UI** (`ui.cpp`/`ui.h`), shared by firmware + simulator. **Edit UI here.**
@@ -87,7 +90,6 @@ Real secrets live ONLY in the gitignored `config.json`; `config.example.json` is
   Both must come back empty. Built images embed compiled creds, so `firmware/releases/*.bin` stay gitignored.
   `.claude/settings.local.json` holds a private env id — gitignored; never commit it.
 
-## Status
-Done: display ✅ · wifi ✅ · data+proxy ✅ (live) · audio ✅ · device screen ✅ · time ✅ · OTA ✅ ·
-config.json settings ✅ · connection-aware UI ✅ · reset drain animation ✅.
-Next: **plan-tier badge** (read `rate_limit_tier` via proxy — todo F12), OTA rollback-validate, weather. Full backlog → [`todo.md`](todo.md).
+> **What's done / what's next:** delivered features → [`README.md`](README.md#features); roadmap → [`todo.md`](todo.md).
+> On every version ship, follow the release checklist in [`.claude/rules/release.md`](.claude/rules/release.md)
+> (move the feature todo→README, add an ADR if it was a key decision, archive/tag, push `main`).
