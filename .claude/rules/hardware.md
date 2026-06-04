@@ -6,6 +6,9 @@ paths:
 ---
 # Hardware rules (firmware/ + boards/)
 
+- **Before any architectural change** (render path, build system, data flow, config model, etc.) **check
+  [`adr/`](../../adr/README.md) first** — follow the existing decisions; supersede an ADR *explicitly* if one
+  must change, and write a new ADR for a new key decision. Key decisions only, not routine features.
 - **Canonical hardware truth = `boards/<arch>/<slug>/SPEC.md`** (pinout, offsets, clocks, quirks). If you
   change a pin, display offset, SPI clock, or board quirk in code, **update that SPEC.md in the same change.**
   Don't restate hardware facts in CLAUDE.md/README — link to the SPEC.

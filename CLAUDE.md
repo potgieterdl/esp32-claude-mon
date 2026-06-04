@@ -13,6 +13,12 @@ with swipe between screens (clock, device status; later weather). LVGL UI, live 
 > Folder-scoped rules auto-load from [`.claude/rules/`](.claude/rules) when you edit `firmware/`, `ui/`, or `proxy/`
 > (incl. the **release checklist** that moves shipped features todo→README and pushes `main`).
 
+> **Before any non-obvious or architectural decision, CHECK [`adr/`](adr/README.md) FIRST.** Follow the
+> existing ADRs — don't relitigate or silently contradict a settled choice; if one genuinely needs to change,
+> supersede it **explicitly** (new ADR marked "Supersedes ADR-NNNN", old one updated to "Superseded by").
+> When you make a NEW key architectural choice — or a non-obvious "tried X, chose Y" not evident from the code —
+> **write an ADR** for it (template in [`adr/README.md`](adr/README.md)). Key decisions only; not routine features/fixes.
+
 ## Repo layout
 - `ui/` — **portable LVGL UI** (`ui.cpp`/`ui.h`), shared by firmware + simulator. **Edit UI here.**
 - `firmware/` — device PlatformIO project: hardware glue (`src/`), config (`include/`), `releases/` (known-good bins).

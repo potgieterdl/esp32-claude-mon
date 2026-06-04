@@ -4,6 +4,12 @@ Short, numbered records of the **key** decisions behind this project — the *wh
 settled choices or lose the "we tried X, it didn't work, so we chose Y" trail. Delivered features live in
 [`README.md`](../README.md); what's left lives in [`todo.md`](../todo.md); **ADRs are the reasoning**.
 
+## Before you decide — check these first
+**Read the existing ADRs before making an architectural change.** A new choice should be *consistent* with
+the records below. If one genuinely must change, don't silently contradict or delete it — write a **new** ADR
+that **explicitly supersedes** it: mark the new one `Supersedes ADR-NNNN`, and set the old one's status to
+`Superseded by ADR-NNNN`. This keeps the trail of *why it changed* intact.
+
 ## When to write one
 Write an ADR when a change is **architectural, hard to reverse, or surprising** — something a future
 contributor (or Claude) would otherwise question or accidentally undo. Examples that earned one: the
