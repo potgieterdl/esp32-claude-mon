@@ -3,6 +3,11 @@
 Desk status display on a **Waveshare ESP32-C6-Touch-LCD-1.69**: shows my Claude usage limits + next reset,
 with swipe between screens (clock, device status; later weather). LVGL UI, live data from a self-hosted proxy.
 
+> **Starting a new task in a fresh context? Run the [`orient`](.claude/skills/orient/SKILL.md) skill FIRST.**
+> It reads the canonical docs + folder rules + the subsystem's source, traces how that piece connects to the
+> rest, and reports a structured understanding before any edit — the "understand before you act" loop. Skip
+> only for trivial one-line lookups.
+
 > **Read the docs in this order (single source of truth each — don't duplicate):**
 > 1. **[`README.md`](README.md)** FIRST — what the app is, its delivered **Features**, hardware, setup.
 > 2. **[`todo.md`](todo.md)** — the roadmap (only what's left to build).
