@@ -156,6 +156,14 @@ int main(int argc, char **argv) {
     snprintf(path, sizeof(path), "%s/%s", outdir, drain[i]);
     dump(path);
   }
+  // Idle pass: no active 5h window (countdown elapsed + usage back at 0) -> faded "--:--" +
+  // "No current session" instead of a frozen 0:00.
+  ui_set_online(true, false);
+  ui_goto(0);
+  ui_set_session_idle(0);
+  settle(1100);   // let the 1 Hz timer fire so the faded "--:--" is shown
+  dump_at(outdir, "14_session_idle.png");
+
   // Notification pass: the passive "token needed" prompt, the "received ✓" ack modal, and a toast.
   ui_set_online(true, false);
   ui_goto(2);   // clock screen shows behind the dim scrim

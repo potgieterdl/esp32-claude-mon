@@ -70,16 +70,24 @@ void view_tick() {
   // Only show usage figures when we have FRESH data; otherwise blank them so the
   // screen never displays stale/placeholder numbers while offline (honest display).
   if (data_valid() && !data_stale()) {
+    int  fh_pct = data_five_hour_pct();
+    long fh_secs = data_five_hour_secs_left();
+    bool fh_active = fh_secs > 0;                  // a live window counting down
     char at[24] = "", next[24] = "";
     uint32_t r = data_five_hour_resets_at();
-    if (time_valid() && r) {
+    if (fh_active && time_valid() && r) {          // only show a reset time for a live window
       char hm[12]; time_fmt_hm(r, hm, sizeof hm);
       snprintf(at,   sizeof at,   "at %s", hm);
       snprintf(next, sizeof next, "next reset %s", hm);
     }
-    ui_set_session(data_five_hour_pct(), data_five_hour_secs_left(), at);
+    // No active 5h window (elapsed while idle: countdown done + usage back at 0) → "No current
+    // session" instead of a stuck 0:00; otherwise drive the live countdown.
+    if (!fh_active && fh_pct == 0)
+      ui_set_session_idle(fh_pct);
+    else
+      ui_set_session(fh_pct, fh_secs, at);
     ui_set_weekly(data_weekly_pct(), data_weekly_secs_left());
-    ui_set_clock_reset(next);
+    ui_set_clock_reset(next);                       // "" when idle → hides the Clock "next reset" line
     audio_check_usage(data_five_hour_pct());
     // Plan badge from the real tier (e.g. "max_5x" -> "MAX 5X"); skip until known.
     const char *plan = data_plan();

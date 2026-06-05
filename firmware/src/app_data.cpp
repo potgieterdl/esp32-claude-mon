@@ -47,6 +47,7 @@ Snapshot   s_snap;
 String     s_lastError = "";
 uint32_t   s_lastPollMs = 0;
 bool       s_firstPoll  = true;
+uint32_t   s_resetRepollFor = 0;   // resets_at we've already boundary-re-polled for (once per window)
 bool       s_needsToken = false;   // true => no/dead token; UI should prompt "run sync script"
 bool       s_tokenRcvd  = false;   // one-shot: a fresh token was just synced (UI confirms receipt)
 uint32_t   s_tokenUpdatedEpoch = 0;   // epoch of the last token update (sync or on-device refresh)
@@ -217,6 +218,11 @@ void data_begin() {
 void data_loop() {
   if (!net_online()) return;  // wait for WiFi; keep last snapshot meanwhile
   uint32_t now = millis();
+  // Boundary re-poll: the instant the 5h window's reset time passes, fetch once right away so a
+  // freshly-started window's countdown appears promptly (not after up to a full poll interval).
+  // Once per reset epoch, so an idle (unchanging) resets_at doesn't trigger repeated polls.
+  uint32_t r = s_snap.five_hour.resets_at, ne = nowEpoch();
+  if (r && ne >= r && s_resetRepollFor != r) { s_resetRepollFor = r; s_firstPoll = true; }
   if (s_firstPoll || (now - s_lastPollMs) >= (uint32_t)settings().poll_seconds * 1000) {
     s_firstPoll = false;
     poll();

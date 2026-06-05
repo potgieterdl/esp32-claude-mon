@@ -95,8 +95,11 @@ static void tick_1s(lv_timer_t *) {
   if (!g_countdown) return;
   if (g_secs < 0) { lv_label_set_text(g_countdown, "--:--"); return; }
   if (g_secs > 0) g_secs--;
+  // Ceil to whole minutes so the label reads "0:00" only at the actual reset — flooring would
+  // show "0:00" for the entire final minute (1–59 s still remaining).
+  int mins = (g_secs + 59) / 60;
   char buf[8];
-  snprintf(buf, sizeof(buf), "%d:%02d", g_secs / 3600, (g_secs % 3600) / 60);
+  snprintf(buf, sizeof(buf), "%d:%02d", mins / 60, mins % 60);
   lv_label_set_text(g_countdown, buf);
 }
 
@@ -308,17 +311,33 @@ static void start_drain(lv_obj_t *var, lv_anim_exec_xcb_t exec, lv_anim_ready_cb
   lv_anim_start(&a);
 }
 
-void ui_set_session(int p, long secs_left, const char *reset_at) {
-  if (!s_sess_anim) {
-    if (s_sess_shown >= 0 && p <= s_sess_shown - RESET_DROP_PCT) {
-      s_sess_anim = true;                          // window reset → drain old → new
-      start_drain(g_sess_ring, sess_anim_exec, sess_anim_done, s_sess_shown, p);
-    } else {
-      sess_apply(p);
-    }
+// Update the Session ring/% (honouring an in-flight reset-drain). Shared by the active and
+// idle setters so both render the ring identically.
+static void sess_update_ring(int p) {
+  if (s_sess_anim) return;
+  if (s_sess_shown >= 0 && p <= s_sess_shown - RESET_DROP_PCT) {
+    s_sess_anim = true;                          // window reset → drain old → new
+    start_drain(g_sess_ring, sess_anim_exec, sess_anim_done, s_sess_shown, p);
+  } else {
+    sess_apply(p);
   }
+}
+
+void ui_set_session(int p, long secs_left, const char *reset_at) {
+  sess_update_ring(p);
+  if (g_countdown) lv_obj_set_style_text_opa(g_countdown, LV_OPA_COVER, 0);  // active = full opacity
   if (secs_left >= 0) g_secs = secs_left;   // drives existing 1s countdown
   if (reset_at && reset_at[0] && g_sess_at) lv_label_set_text(g_sess_at, reset_at);
+}
+
+// No active 5-hour window (it elapsed while idle): the usage API has no resets_at to count toward,
+// so show a faded "--:--" + "No current session" instead of a frozen 0:00. The live countdown
+// returns automatically once a new window starts (presenter switches back to ui_set_session).
+void ui_set_session_idle(int p) {
+  sess_update_ring(p);
+  g_secs = -1;                                                          // countdown → "--:--"
+  if (g_countdown) lv_obj_set_style_text_opa(g_countdown, LV_OPA_50, 0);  // faded (de-emphasised)
+  if (g_sess_at)   lv_label_set_text(g_sess_at, "No current session");
 }
 
 void ui_set_weekly(int p, long secs_left) {
@@ -346,6 +365,7 @@ void ui_clear_usage() {
   if (g_wk_ring)     lv_arc_set_value(g_wk_ring, 0);
   if (g_wk_pct)      lv_label_set_text(g_wk_pct, "--");
   if (g_clock_next)  lv_label_set_text(g_clock_next, "");   // Clock screen "next reset" is session data too
+  if (g_countdown)   lv_obj_set_style_text_opa(g_countdown, LV_OPA_COVER, 0);  // un-fade (may have been idle)
   s_sess_shown = s_wk_shown = -1;
   g_secs = -1;   // countdown → "--:--"
 }

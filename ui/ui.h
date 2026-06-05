@@ -22,6 +22,7 @@ void ui_goto_anim(int idx);   // same, but animated slide (one-time Clock->Sessi
 
 // Live data hooks (F4). pct 0..100; secs_left < 0 = unknown (keeps internal timer).
 void ui_set_session(int five_hour_pct, long secs_left, const char *reset_at);  // reset_at e.g. "at 4:30 PM"
+void ui_set_session_idle(int five_hour_pct);  // no active 5h window: faded "--:--" + "No current session"
 void ui_set_plan(const char *label);   // Session plan badge text (e.g. "MAX 5X" / "MAX 20X" / "PRO")
 void ui_set_weekly(int weekly_pct, long secs_left);
 void ui_set_online(bool online, bool stale);   // top-bar status dot color
