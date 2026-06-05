@@ -1,7 +1,8 @@
 # ESP32-C6 Claude Monitor
 
 Desk status display on a **Waveshare ESP32-C6-Touch-LCD-1.69**: shows my Claude usage limits + next reset,
-with swipe between screens (clock, device status; later weather). LVGL UI, live data from a self-hosted proxy.
+with swipe between screens (clock, device status; later weather). LVGL UI, live data fetched **directly from
+the Anthropic usage API** over CA-pinned HTTPS, with the OAuth token refreshed on-device (no proxy).
 
 > **Starting a new task in a fresh context? Run the [`orient`](.claude/skills/orient/SKILL.md) skill FIRST.**
 > It reads the canonical docs + folder rules + the subsystem's source, traces how that piece connects to the
@@ -13,9 +14,9 @@ with swipe between screens (clock, device status; later weather). LVGL UI, live 
 > 2. **[`todo.md`](todo.md)** — the roadmap (only what's left to build).
 > 3. Then whatever's relevant: **[`adr/`](adr/README.md)** (why key decisions were made) ·
 >    **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** (portable core ↔ device adapter, render path, modules) ·
->    **hardware** → [`boards/<arch>/<slug>/SPEC.md`](boards/README.md) · **proxy** → [`proxy/README.md`](proxy/README.md) ·
+>    **hardware** → [`boards/<arch>/<slug>/SPEC.md`](boards/README.md) ·
 >    **rollback / build history** → [`firmware/releases/README.md`](firmware/releases/README.md).
-> Folder-scoped rules auto-load from [`.claude/rules/`](.claude/rules) when you edit `firmware/`, `ui/`, or `proxy/`
+> Folder-scoped rules auto-load from [`.claude/rules/`](.claude/rules) when you edit `firmware/` or `ui/`
 > (incl. the **release checklist** that moves shipped features todo→README and pushes `main`).
 
 > **Before any non-obvious or architectural decision, CHECK [`adr/`](adr/README.md) FIRST.** Follow the
@@ -23,6 +24,9 @@ with swipe between screens (clock, device status; later weather). LVGL UI, live 
 > supersede it **explicitly** (new ADR marked "Supersedes ADR-NNNN", old one updated to "Superseded by").
 > When you make a NEW key architectural choice — or a non-obvious "tried X, chose Y" not evident from the code —
 > **write an ADR** for it (template in [`adr/README.md`](adr/README.md)). Key decisions only; not routine features/fixes.
+>
+> **Usage data is fetched on-device directly from Anthropic** — see [ADR-0006](adr/0006-device-direct-oauth.md)
+> (which supersedes [ADR-0001](adr/0001-self-hosted-proxy.md)).
 
 ## Repo layout
 - `ui/` — **portable LVGL UI** (`ui.cpp`/`ui.h`), shared by firmware + simulator. **Edit UI here.**
@@ -30,7 +34,8 @@ with swipe between screens (clock, device status; later weather). LVGL UI, live 
 - `experiments/sim/` — desktop simulator (native/gcc) → PNG screenshots, no hardware needed.
 - `boards/` — per-device hardware specs (one folder per board; scales to more devices).
 - `docs/` — `ARCHITECTURE.md`, schematic PDF, demo bundle; `perf-notes`/`research-notes` are historical.
-- `proxy/` — Dockerized claude.ai→usage-JSON proxy. `vendor/` — upstream Waveshare refs (pull, don't edit).
+- `claude_token_sync.js` (repo root) — one-shot setup/recovery: dedicated `claude auth login` → PUTs an OAuth
+  token to `claude-monitor.local`. `vendor/` — upstream Waveshare refs (pull, don't edit).
 
 ## Workflow
 - **Pull upstream first** when starting: `git -C vendor/ESP32-C6-Touch-LCD-1.69 pull`.
@@ -57,9 +62,9 @@ pio run -d firmware -t upload       # build + flash over USB (auto-detects COM p
 
 ### Flash over WiFi (OTA) — Claude can run this end-to-end, no USB
 When USB drifts (or you just don't want a cable), flash the running device over the LAN via ElegantOTA.
-Prereq: device booted + on WiFi (find its IP on the Device screen or `http://<device-ip>/`).
+Prereq: device booted + on WiFi (reach it at `http://claude-monitor.local/` or its IP on the Device screen).
 ```powershell
-$ip="<device-ip>"; $tok="<proxy.token from config.json>"
+$ip="claude-monitor.local"; $tok="<device.token from config.json>"
 $bin="firmware/.pio/build/esp32-c6/firmware.bin"          # the app image — NOT firmware.factory.bin
 $md5=(Get-FileHash $bin -Algorithm MD5).Hash.ToLower()
 curl.exe -s -u "admin:$tok" "http://$ip/ota/start?mode=fr&hash=$md5"          # -> OK (HTTP 200)
@@ -67,7 +72,7 @@ curl.exe -s -u "admin:$tok" -F "file=@$bin;type=application/octet-stream" "http:
 curl.exe -s "http://$ip/"   # verify: page shows "Firmware: <new version>"
 ```
 - `/update` is the ElegantOTA browser page; `/ota/start`+`/ota/upload` are the API it calls (what the curl above uses).
-- Auth is basic `admin` / `PROXY_TOKEN`. OTA writes the *inactive* slot and only boots it if the MD5 checks out,
+- Auth is basic `admin` / the device token (`device.token`). OTA writes the *inactive* slot and only boots it if the MD5 checks out,
   so a bad upload can't brick the device. The web server can drop the **first** request (curl `000`) — just retry.
 - **Self-test over WiFi too:** `GET/PUT http://<ip>/config.json` exercises settings; `/` reports firmware/heap.
 
@@ -77,26 +82,34 @@ curl.exe -s "http://$ip/"   # verify: page shows "Firmware: <new version>"
 - **One feature per flash.** Integrate + flash a single change; the user verifies on the device before the next.
 - **Keep known-good builds.** After a confirmed-good flash, archive `.pio/build/esp32-c6/firmware.factory.bin`
   → `firmware/releases/<name>.bin` and `git tag` the commit. Rollback = flash that `.bin` at 0x0.
-  Latest good: `fw-v1.7.0-good`.
+  Latest good: `fw-v1.8.0-good`.
 
 ## Config & settings
 **One file: the repo-root `config.json`** (gitignored; `config.example.json` is the template) holds
-everything — `wifi`, `proxy` (url/token/session_key/poll), `device` (poll/tz/thresholds/display).
+`wifi` {ssid,pass}, `device` {token, poll_seconds, tz, thresholds, display}, and an `oauth` block
+{access_token, refresh_token, expires_at, rate_limit_tier}. **No `proxy` section.** `device.token` is the
+basic-auth password for the device's web endpoints (`/config.json`, `/status`, OTA `/update`) and for the
+sync script — it is *not* a proxy token. The `oauth` block is written by `claude_token_sync.js` (and rotated
+on-device on refresh), never hand-edited.
 - **Device build:** `firmware/load_config.py` (pre-build) reads `../config.json` → `CFG_*` compile defines →
   `app_settings` seed defaults. (Placeholder fallbacks let it compile with no config.json.)
-- **Proxy:** reads the same file's `proxy` section (env vars override). Docker mounts `../config.json`.
-- **Live device settings:** the device also serves `GET/PUT http://<ip>/config.json` (auth `admin`/token) to
-  change runtime settings (brightness, dim, thresholds…) without reflashing — seeded from the build defaults.
+- **Token setup:** `node claude_token_sync.js` runs `claude auth login` into a dedicated dir (`~/.claude-device`,
+  so the device's token family is independent of your own login) and PUTs the token to `claude-monitor.local`.
+- **Live device settings:** the device also serves `GET/PUT http://claude-monitor.local/config.json`
+  (auth `admin`/device-token) to change runtime settings (brightness, dim, thresholds…) without reflashing —
+  seeded from the build defaults.
 
 ## Secrets & publishing (CHECK before testing or pushing)
-Real secrets live ONLY in the gitignored `config.json`; `config.example.json` is the template a new user fills in.
-**Checked in on purpose** (help contributors): `.claude/rules/*.md`, `.claude/settings.json`, `config.example.json`.
+Real secrets live ONLY in the gitignored `config.json` — WiFi pass, `device.token`, and the `oauth` tokens
+(access/refresh); the live OAuth token also sits on the device (LittleFS), never in git. `config.example.json`
+is the template a new user fills in. **Checked in on purpose** (help contributors): `.claude/rules/*.md`,
+`.claude/settings.json`, `config.example.json`.
 - **On a fresh clone:** `cp config.example.json config.json` and fill it in (else the device build uses
-  placeholder Wi-Fi and won't connect).
+  placeholder Wi-Fi and won't connect), then `node claude_token_sync.js` to give the device a token.
 - **Before any `git push` / making the repo public, verify nothing secret is tracked:**
   ```powershell
-  git ls-files | Select-String '^config\.json$|settings\.local|/\.env$|session_key|releases/.*\.bin$'   # expect: NONE
-  git grep -niE 'sk-ant-sid01-[a-z0-9]{6}' -- .                                                          # expect: NONE
+  git ls-files | Select-String '^config\.json$|settings\.local|/\.env$|releases/.*\.bin$'   # expect: NONE
+  git grep -niE 'sk-ant-(oat|ort)0[0-9]' -- .                                               # OAuth tokens — expect: NONE
   ```
   Both must come back empty. Built images embed compiled creds, so `firmware/releases/*.bin` stay gitignored.
   `.claude/settings.local.json` holds a private env id — gitignored; never commit it.

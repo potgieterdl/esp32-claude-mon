@@ -1,6 +1,10 @@
 # ADR 0001: Self-hosted proxy for claude.ai usage data
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0006](0006-device-direct-oauth.md) (2026-06-05)
 - **Date:** 2026-06-04
+
+> Kept for historical context. The proxy has been removed — the device now calls Anthropic's usage API
+> directly and refreshes its own OAuth token on-device. See [ADR-0006](0006-device-direct-oauth.md) for why
+> the central premise below (the ESP can't get past Cloudflare) turned out to be wrong for the *API* host.
 
 ## Context
 The device needs the user's Claude usage (5-hour + weekly limits). Two hard constraints:

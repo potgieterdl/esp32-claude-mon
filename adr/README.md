@@ -39,8 +39,9 @@ The trade-offs we accept (+ good / − bad), and anything that must NOT be undon
 ```
 
 ## Index
-- [ADR 0001 — Self-hosted proxy for claude.ai usage data](0001-self-hosted-proxy.md)
+- [ADR 0001 — Self-hosted proxy for claude.ai usage data](0001-self-hosted-proxy.md) *(superseded by 0006)*
 - [ADR 0002 — Render path: LovyanGFX async-DMA + 80 MHz write-only SPI](0002-render-path-lovyangfx-80mhz.md)
 - [ADR 0003 — One root `config.json` for all secrets + settings](0003-single-config-json.md)
 - [ADR 0004 — Registry dependencies + per-device `boards/` scaffold](0004-registry-deps-and-boards.md)
 - [ADR 0005 — Validate the UI in the simulator, not via on-device screenshots](0005-simulator-over-device-screenshot.md)
+- [ADR 0006 — Device calls Anthropic usage API directly (on-device OAuth)](0006-device-direct-oauth.md) *(supersedes 0001)*

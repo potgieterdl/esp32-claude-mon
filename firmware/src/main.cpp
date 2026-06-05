@@ -105,7 +105,7 @@ void setup() {
   Serial.begin(115200);
   Wire.begin(I2C_SDA, I2C_SCL);
   view_begin();        // battery-sense pin
-  settings_begin();    // LittleFS config.json (Wi-Fi/proxy/tz/brightness/...) — must precede net/web/time
+  settings_begin();    // LittleFS config.json (Wi-Fi/device/oauth/...) — must precede net/web/time
 
   tft.init();
   tft.setRotation(1);            // landscape 280x240

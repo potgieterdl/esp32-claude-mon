@@ -11,10 +11,11 @@
 #define C_AMBER lv_color_hex(0xF0A93A)
 #define C_RED   lv_color_hex(0xE5484D)
 #define C_TRACK lv_color_hex(0x2A2620)
-#define C_BLUE  lv_color_hex(0x3DA5FF)  // "online, awaiting proxy data" — distinct from red
+#define C_BLUE  lv_color_hex(0x3DA5FF)  // "online, awaiting usage-API data" — distinct from red
 
 // live-data handles (F4) — captured in build_*; updated by ui_set_*.
 static lv_obj_t *g_sess_ring = nullptr, *g_sess_pct = nullptr, *g_sess_wk_bar = nullptr, *g_sess_at = nullptr;
+static lv_obj_t *g_sess_badge = nullptr;   // Session-screen plan pill (MAX 5X / MAX 20X / PRO), wired to data_plan()
 static lv_obj_t *g_sess_wk_pct = nullptr;   // Session-screen weekly-% label (was a discarded handle → froze at mock 41%)
 static lv_obj_t *g_wk_ring = nullptr, *g_wk_pct = nullptr;
 static lv_obj_t *g_clock_time = nullptr, *g_clock_date = nullptr, *g_clock_next = nullptr;
@@ -23,7 +24,7 @@ static int       g_status_dot_n = 0;
 // device-screen value labels (F7)
 static lv_obj_t *g_dev_wifi = nullptr, *g_dev_ip = nullptr, *g_dev_sig = nullptr,
                 *g_dev_batt = nullptr, *g_dev_heap = nullptr, *g_dev_fw = nullptr,
-                *g_dev_proxy = nullptr;
+                *g_dev_api = nullptr, *g_dev_tok = nullptr, *g_dev_renew = nullptr;
 
 // ── small style helpers ─────────────────────────────────────
 static void plain(lv_obj_t *o) {
@@ -59,7 +60,8 @@ static lv_obj_t *mkring(lv_obj_t *p, int val, lv_color_t col, int size) {
   return a;
 }
 
-static void topbar(lv_obj_t *t, const char *badge, lv_color_t bg, lv_color_t fg) {
+// Returns the badge label so a caller (Session) can keep its handle and update it live.
+static lv_obj_t *topbar(lv_obj_t *t, const char *badge, lv_color_t bg, lv_color_t fg) {
   lv_obj_t *brand = mklabel(t, "CLAUDE", &lv_font_montserrat_16, C_CORAL);
   lv_obj_set_style_text_letter_space(brand, 2, 0);
   lv_obj_align(brand, LV_ALIGN_TOP_LEFT, 18, 9);
@@ -82,6 +84,7 @@ static void topbar(lv_obj_t *t, const char *badge, lv_color_t bg, lv_color_t fg)
   if (g_status_dot_n < 4) g_status_dots[g_status_dot_n++] = dot;
   lv_obj_t *wf = mklabel(t, "WI-FI", &lv_font_montserrat_12, C_DIM);
   lv_obj_align(wf, LV_ALIGN_TOP_RIGHT, -18, 10);
+  return b;
 }
 
 // ── live countdown (sample) ─────────────────────────────────
@@ -99,7 +102,7 @@ static void tick_1s(lv_timer_t *) {
 
 // ── Screen 1: Session ───────────────────────────────────────
 static void build_session(lv_obj_t *t) {
-  topbar(t, "MAX 20X", C_CORAL, C_BG);
+  g_sess_badge = topbar(t, "CLAUDE", C_CORAL, C_BG);   // placeholder until data_plan() arrives
 
   lv_obj_t *ring = mkring(t, 0, C_CORAL, 116);   // 0 until live data (was mock 68)
   lv_obj_align(ring, LV_ALIGN_LEFT_MID, 10, 8);
@@ -223,15 +226,17 @@ static lv_obj_t *devrow(lv_obj_t *p, const char *k, const char *v) {
 static void build_device(lv_obj_t *t) {
   topbar(t, "DEVICE", C_TRACK, C_DIM);
   lv_obj_t *col = lv_obj_create(t); plain(col);
-  lv_obj_set_size(col, 248, 178);
-  lv_obj_align(col, LV_ALIGN_BOTTOM_MID, 0, -16);
+  lv_obj_set_size(col, 248, 192);
+  lv_obj_align(col, LV_ALIGN_BOTTOM_MID, 0, -14);
   lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_style_pad_row(col, 6, 0);
+  lv_obj_set_style_pad_row(col, 4, 0);
 
   g_dev_wifi  = devrow(col, "WI-FI",    "-");
   g_dev_ip    = devrow(col, "IP",       "-");
   g_dev_sig   = devrow(col, "SIGNAL",   "-");
-  g_dev_proxy = devrow(col, "PROXY",    "-");
+  g_dev_api   = devrow(col, "API",      "-");   // usage-API connection status (was "PROXY")
+  g_dev_tok   = devrow(col, "TOKEN",    "-");   // when the OAuth token was last synced/refreshed
+  g_dev_renew = devrow(col, "RENEWS",   "-");   // when the token next auto-refreshes
   g_dev_batt  = devrow(col, "BATTERY",  "-");
   g_dev_heap  = devrow(col, "FREE RAM", "-");
   g_dev_fw    = devrow(col, "FIRMWARE", "-");
@@ -351,10 +356,19 @@ void ui_set_online(bool online, bool stale) {
   else if (stale) { c = C_BLUE;  txt = "no data"; }
   else            { c = C_GREEN; txt = "connected"; }
   for (int i = 0; i < g_status_dot_n; i++) lv_obj_set_style_bg_color(g_status_dots[i], c, 0);
-  if (g_dev_proxy) {
-    lv_label_set_text(g_dev_proxy, txt);
-    lv_obj_set_style_text_color(g_dev_proxy, c, 0);
+  if (g_dev_api) {
+    lv_label_set_text(g_dev_api, txt);
+    lv_obj_set_style_text_color(g_dev_api, c, 0);
   }
+}
+
+void ui_set_token_info(const char *last_sync, const char *renews) {
+  if (g_dev_tok)   lv_label_set_text(g_dev_tok, last_sync);
+  if (g_dev_renew) lv_label_set_text(g_dev_renew, renews);
+}
+
+void ui_set_plan(const char *label) {   // Session plan pill (e.g. "MAX 5X")
+  if (g_sess_badge && label && label[0]) lv_label_set_text(g_sess_badge, label);
 }
 
 static void setlbl(lv_obj_t *l, const char *s) { if (l) lv_label_set_text(l, s); }
@@ -405,6 +419,147 @@ lv_obj_t *ui_build_splash(const char *version) {
   lv_anim_start(&a);
 
   return scr;
+}
+
+// ── Reusable notifications: one modal slot + one toast (top layer, above all screens) ──
+// MODAL = dim scrim + centered card (the clock shows behind). A modal with >=1 button is an
+// ACKNOWLEDGE modal: it stays until the user taps (cb fires) and ui_modal_clear can't remove it.
+// A button-less modal is PASSIVE: shown while a condition holds, removed by ui_modal_clear(id).
+// Single slot: higher prio wins; an unacknowledged ack-modal isn't downgraded by a lower prio.
+static lv_obj_t *g_modal = nullptr, *g_modal_title = nullptr, *g_modal_body = nullptr,
+                *g_modal_btnrow = nullptr, *g_modal_b0 = nullptr, *g_modal_b1 = nullptr,
+                *g_modal_b0l = nullptr, *g_modal_b1l = nullptr;
+static int          g_modal_id = 0, g_modal_prio = 0;
+static bool         g_modal_ack = false;   // current modal is awaiting a button tap
+static ui_action_cb g_modal_cb = nullptr;
+
+static lv_color_t sev_color(ui_severity_t s) {
+  switch (s) { case UI_SEV_OK: return C_GREEN; case UI_SEV_WARN: return C_AMBER;
+               case UI_SEV_ERROR: return C_RED; default: return C_BLUE; }
+}
+
+static void modal_btn_cb(lv_event_t *e) {
+  int btn = (int)(intptr_t)lv_event_get_user_data(e);
+  ui_action_cb cb = g_modal_cb; int id = g_modal_id;
+  g_modal_id = 0; g_modal_prio = 0; g_modal_ack = false; g_modal_cb = nullptr;
+  lv_obj_add_flag(g_modal, LV_OBJ_FLAG_HIDDEN);
+  if (cb) cb(id, btn);
+}
+
+static void modal_build() {
+  lv_obj_t *scrim = lv_obj_create(lv_layer_top());   // dim backdrop; screen behind stays visible
+  lv_obj_set_size(scrim, UI_W, UI_H);
+  lv_obj_center(scrim);
+  lv_obj_set_style_bg_color(scrim, C_BG, 0);
+  lv_obj_set_style_bg_opa(scrim, LV_OPA_70, 0);
+  lv_obj_set_style_border_width(scrim, 0, 0);
+  lv_obj_set_style_pad_all(scrim, 0, 0);
+  lv_obj_remove_flag(scrim, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t *card = lv_obj_create(scrim);
+  lv_obj_set_size(card, UI_W - 40, LV_SIZE_CONTENT);
+  lv_obj_center(card);
+  lv_obj_set_style_bg_color(card, C_TRACK, 0);
+  lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
+  lv_obj_set_style_radius(card, 14, 0);
+  lv_obj_set_style_border_width(card, 0, 0);
+  lv_obj_set_style_pad_all(card, 16, 0);
+  lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(card, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_row(card, 12, 0);
+
+  g_modal_title = mklabel(card, "", &lv_font_montserrat_24, C_INK);
+  lv_label_set_long_mode(g_modal_title, LV_LABEL_LONG_WRAP);   // never clip a long title
+  lv_obj_set_width(g_modal_title, UI_W - 40 - 32);
+  lv_obj_set_style_text_align(g_modal_title, LV_TEXT_ALIGN_CENTER, 0);
+  g_modal_body = mklabel(card, "", &lv_font_montserrat_14, C_INK);
+  lv_label_set_long_mode(g_modal_body, LV_LABEL_LONG_WRAP);
+  lv_obj_set_width(g_modal_body, UI_W - 40 - 32);
+  lv_obj_set_style_text_align(g_modal_body, LV_TEXT_ALIGN_CENTER, 0);
+
+  g_modal_btnrow = lv_obj_create(card); plain(g_modal_btnrow);
+  lv_obj_set_size(g_modal_btnrow, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(g_modal_btnrow, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(g_modal_btnrow, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(g_modal_btnrow, 10, 0);
+  g_modal_b0 = lv_button_create(g_modal_btnrow);
+  lv_obj_set_style_bg_color(g_modal_b0, C_CORAL, 0);
+  lv_obj_set_style_pad_hor(g_modal_b0, 20, 0); lv_obj_set_style_pad_ver(g_modal_b0, 8, 0);
+  lv_obj_add_event_cb(g_modal_b0, modal_btn_cb, LV_EVENT_CLICKED, (void *)(intptr_t)0);
+  g_modal_b0l = mklabel(g_modal_b0, "OK", &lv_font_montserrat_14, C_BG); lv_obj_center(g_modal_b0l);
+  g_modal_b1 = lv_button_create(g_modal_btnrow);
+  lv_obj_set_style_bg_color(g_modal_b1, C_TRACK, 0);
+  lv_obj_set_style_border_width(g_modal_b1, 1, 0);
+  lv_obj_set_style_border_color(g_modal_b1, C_DIM, 0);
+  lv_obj_set_style_pad_hor(g_modal_b1, 20, 0); lv_obj_set_style_pad_ver(g_modal_b1, 8, 0);
+  lv_obj_add_event_cb(g_modal_b1, modal_btn_cb, LV_EVENT_CLICKED, (void *)(intptr_t)1);
+  g_modal_b1l = mklabel(g_modal_b1, "", &lv_font_montserrat_14, C_INK); lv_obj_center(g_modal_b1l);
+
+  g_modal = scrim;
+  lv_obj_add_flag(g_modal, LV_OBJ_FLAG_HIDDEN);
+}
+
+void ui_modal_show(int id, ui_severity_t sev, int prio, const char *title, const char *body,
+                   const char *b0, const char *b1, ui_action_cb cb) {
+  if (!g_modal) modal_build();
+  // Protect an unacknowledged ack-modal of a different id from a lower-or-equal-prio show.
+  if (g_modal_id && g_modal_ack && id != g_modal_id && prio <= g_modal_prio) return;
+
+  bool wasHidden = lv_obj_has_flag(g_modal, LV_OBJ_FLAG_HIDDEN);
+  g_modal_id = id; g_modal_prio = prio; g_modal_cb = cb;
+  g_modal_ack = (b0 && b0[0]);
+
+  lv_label_set_text(g_modal_title, title ? title : "");
+  lv_obj_set_style_text_color(g_modal_title, sev_color(sev), 0);
+  lv_label_set_text(g_modal_body, body ? body : "");
+
+  if (b0 && b0[0]) { lv_label_set_text(g_modal_b0l, b0); lv_obj_remove_flag(g_modal_b0, LV_OBJ_FLAG_HIDDEN); }
+  else             lv_obj_add_flag(g_modal_b0, LV_OBJ_FLAG_HIDDEN);
+  if (b1 && b1[0]) { lv_label_set_text(g_modal_b1l, b1); lv_obj_remove_flag(g_modal_b1, LV_OBJ_FLAG_HIDDEN); }
+  else             lv_obj_add_flag(g_modal_b1, LV_OBJ_FLAG_HIDDEN);
+  if (g_modal_ack) lv_obj_remove_flag(g_modal_btnrow, LV_OBJ_FLAG_HIDDEN);
+  else             lv_obj_add_flag(g_modal_btnrow, LV_OBJ_FLAG_HIDDEN);
+
+  lv_obj_remove_flag(g_modal, LV_OBJ_FLAG_HIDDEN);
+  if (wasHidden) lv_obj_move_foreground(g_modal);
+}
+
+void ui_modal_clear(int id) {
+  if (!g_modal || g_modal_id != id) return;
+  if (g_modal_ack) return;                  // awaiting a tap — don't yank it out from under the user
+  g_modal_id = 0; g_modal_prio = 0; g_modal_cb = nullptr;
+  lv_obj_add_flag(g_modal, LV_OBJ_FLAG_HIDDEN);
+}
+
+// ── transient toast ─────────────────────────────────────────
+static lv_obj_t *g_toast = nullptr, *g_toast_lbl = nullptr;
+static void toast_timer_cb(lv_timer_t *t) {
+  if (g_toast) lv_obj_add_flag(g_toast, LV_OBJ_FLAG_HIDDEN);
+  lv_timer_delete(t);
+}
+void ui_toast(ui_severity_t sev, const char *text, uint32_t ms) {
+  if (!g_toast) {
+    g_toast = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(g_toast, UI_W - 24, LV_SIZE_CONTENT);
+    lv_obj_align(g_toast, LV_ALIGN_TOP_MID, 0, 8);
+    lv_obj_set_style_radius(g_toast, 8, 0);
+    lv_obj_set_style_border_width(g_toast, 0, 0);
+    lv_obj_set_style_pad_all(g_toast, 8, 0);
+    lv_obj_remove_flag(g_toast, LV_OBJ_FLAG_SCROLLABLE);
+    g_toast_lbl = mklabel(g_toast, "", &lv_font_montserrat_14, C_BG);
+    lv_label_set_long_mode(g_toast_lbl, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(g_toast_lbl, UI_W - 24 - 16);
+    lv_obj_set_style_text_align(g_toast_lbl, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_center(g_toast_lbl);
+  }
+  lv_label_set_text(g_toast_lbl, text ? text : "");
+  lv_obj_set_style_bg_color(g_toast, sev_color(sev), 0);
+  lv_obj_set_style_bg_opa(g_toast, LV_OPA_COVER, 0);
+  lv_obj_remove_flag(g_toast, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(g_toast);
+  lv_timer_t *t = lv_timer_create(toast_timer_cb, ms ? ms : 3000, NULL);
+  lv_timer_set_repeat_count(t, 1);
 }
 
 void ui_build(lv_obj_t *parent) {

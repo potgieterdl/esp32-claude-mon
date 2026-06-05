@@ -10,14 +10,9 @@ docs/*.zip
 experiments/sim/out/
 
 # Local secrets — ONE file: copy config.example.json -> config.json and fill it in.
+# Holds wifi + device.token + the synced oauth block (written by claude_token_sync.js).
 /config.json
 firmware/data/config.json
-
-# Proxy secrets (use .env.example as the template)
-proxy/.env
-proxy/session_key
-proxy/oauth_token.json
-proxy/node_modules/
 
 # Claude Code personal/local settings (holds a private env id, machine-specific).
 # Shared Claude config IS checked in on purpose: .claude/settings.json + .claude/rules/*.md

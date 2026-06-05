@@ -11,17 +11,19 @@ a `.env` would not have changed the security posture.
 
 ## Decision
 **One gitignored root `config.json`** (with `config.example.json` as the committed template) holds
-everything: `wifi`, `proxy` (url/token/session_key/poll), and `device` settings.
+everything: `wifi`, `device` settings, and `oauth` (Claude token/refresh-token, provisioned by
+`claude_token_sync.js` — see [ADR-0006](0006-device-direct-oauth.md)).
 - **Device build** reads it via a PlatformIO pre-build script (`firmware/load_config.py`) that injects
   `CFG_*` compile-time defines; `app_settings` uses them as its seed defaults (placeholder `#ifndef`
   fallbacks keep it compiling with no config.json, e.g. CI).
-- **Proxy** reads the same file's `proxy` section (env vars still override); Docker mounts `../config.json`.
 - The device also serves its **live** settings at `PUT /config.json` (runtime tweaks without reflash).
 
+> The original `proxy` section (url/token/session_key/poll) was removed when [ADR-0006](0006-device-direct-oauth.md)
+> dropped the proxy; the device now talks to Anthropic directly with an on-device OAuth token under `oauth`.
+
 ## Consequences
-- **+** One file to edit; same schema feeds both the device and the proxy; gitignored, so secrets never commit.
+- **+** One file to edit; gitignored, so secrets never commit.
 - **+** `config.example.json` documents the full schema for newcomers.
 - **−** Credentials are compiled into `firmware.bin` — acceptable here: the binary is built locally, flashed
   over USB, and gitignored (`firmware/releases/*.bin`). We explicitly chose *not* to do runtime Wi-Fi
   provisioning (captive portal) — see the trade-off; revisit if the device is ever distributed pre-built.
-- **−** The proxy needs `config.json` reachable on its host (Docker mounts it from one level up).

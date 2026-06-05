@@ -1,21 +1,15 @@
 {
-  "_note": "ONE setup file for the whole project. Copy to config.json (gitignored) and fill in. The device firmware reads wifi + proxy.url/token + device.* at build time; the proxy (on your Pi) reads proxy.token/session_key/poll_seconds. Device runtime settings can also be changed live via PUT /config.json on the device.",
+  "_note": "ONE setup file for the whole project. Copy to config.json (gitignored) and fill in wifi + device.token. The device firmware reads wifi + device.* at build time. The OAuth token is NOT set here by hand — run `node claude_token_sync.js` once (it does a dedicated Claude login and syncs the token to the device, recording it in the `oauth` block below). Live device settings can also be changed via PUT /config.json on the device.",
   "wifi": {
     "ssid": "YOUR_WIFI_SSID",
     "pass": "YOUR_WIFI_PASSWORD"
   },
-  "proxy": {
-    "url": "http://YOUR_PROXY_HOST:7890/usage",
-    "token": "YOUR_SHARED_TOKEN",
-    "_auth_note": "PREFERRED: install Claude Code, run `claude` + sign in, then `node proxy/get_token.js` — it fills proxy.oauth_token below (an auto-refreshing token, no recurring chore). FALLBACK: paste a claude.ai session_key cookie instead (expires every few days).",
-    "oauth_token": null,
-    "session_key": "",
-    "poll_seconds": 60
-  },
   "device": {
-    "poll_seconds": 30,
+    "token": "YOUR_DEVICE_TOKEN",
+    "poll_seconds": 60,
     "tz": "GMT0IST,M3.5.0/1,M10.5.0",
     "thresholds": { "warn_pct": 70, "max_pct": 100 },
     "display": { "brightness": 50, "dim_on_idle": false, "dim_after_s": 60, "dim_brightness": 10 }
-  }
+  },
+  "oauth": null
 }

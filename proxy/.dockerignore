@@ -1,6 +1,0 @@
-.env
-session_key
-node_modules
-npm-debug.log
-*.md
-.git

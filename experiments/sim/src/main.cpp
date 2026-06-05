@@ -50,6 +50,12 @@ static void dump(const char *path) {
   printf("wrote %s\n", path);
 }
 
+static void dump_at(const char *dir, const char *name) {
+  char path[512];
+  snprintf(path, sizeof path, "%s/%s", dir, name);
+  dump(path);
+}
+
 static int pct_after(const char *region, const char *key) {
   if (!region) return -1;
   const char *p = strstr(region, key);
@@ -59,16 +65,18 @@ static int pct_after(const char *region, const char *key) {
   return *p ? atoi(p) : -1;
 }
 
-// Pull live usage from the proxy (curl) if PROXY_URL is set & reachable; else false → caller mocks.
+// Pull live usage from the running device's /status (curl) if DEVICE_HOST is set & reachable;
+// else false → caller mocks. (No proxy anymore — the device is the source of usage data.)
+//   DEVICE_HOST=claude-monitor.local DEVICE_TOKEN=<device.token> ./program out
 static bool fetch_live(int *fh_pct, int *wk_pct) {
-  const char *url = getenv("PROXY_URL");
-  const char *tok = getenv("PROXY_TOKEN");
-  if (!url || !url[0]) return false;
+  const char *host = getenv("DEVICE_HOST");
+  const char *tok  = getenv("DEVICE_TOKEN");
+  if (!host || !host[0]) return false;
   char cmd[600];
   if (tok && tok[0])
-    snprintf(cmd, sizeof cmd, "curl -s -m 3 -H \"Authorization: Bearer %s\" \"%s\"", tok, url);
+    snprintf(cmd, sizeof cmd, "curl -s -m 3 -u \"admin:%s\" \"http://%s/status\"", tok, host);
   else
-    snprintf(cmd, sizeof cmd, "curl -s -m 3 \"%s\"", url);
+    snprintf(cmd, sizeof cmd, "curl -s -m 3 \"http://%s/status\"", host);
   FILE *f = popen(cmd, "r");
   if (!f) return false;
   char buf[1024];
@@ -98,10 +106,19 @@ int main(int argc, char **argv) {
   ui_build(lv_screen_active());
 
   int fh = 68, wk = 41;   // mock defaults (the design samples)
-  if (fetch_live(&fh, &wk)) printf("[sim] LIVE proxy data: 5h=%d%% weekly=%d%%\n", fh, wk);
-  else                      printf("[sim] MOCK data (set PROXY_URL/PROXY_TOKEN, or proxy unreachable)\n");
-  ui_set_session(fh, -1, "");
+  if (fetch_live(&fh, &wk)) printf("[sim] LIVE device data: 5h=%d%% weekly=%d%%\n", fh, wk);
+  else                      printf("[sim] MOCK data (set DEVICE_HOST/DEVICE_TOKEN, or device unreachable)\n");
+  // Populate every screen with realistic, NON-sensitive demo data (for README screenshots too).
+  ui_set_online(true, false);
+  ui_set_plan("MAX 5X");
+  ui_set_session(fh, 9000, "at 4:30 PM");        // ~2.5 h countdown + reset time
   ui_set_weekly(wk, -1);
+  ui_set_clock("14:32", "THU 5 JUN");
+  ui_set_clock_reset("next reset 4:30 PM");
+  ui_set_device("home-wifi", "192.168.1.42", "-54 dBm", "86%", "131 KB", "1.8.0");  // fake LAN details
+  ui_set_token_info("2m ago", "in 7h");
+
+  settle(1100);   // let the 1 Hz countdown timer fire once so it shows "2:30", not "--:--"
 
   const char *names[4] = {"01_session.png", "02_weekly.png", "03_clock.png", "04_device.png"};
   for (int i = 0; i < 4; i++) {
@@ -139,6 +156,22 @@ int main(int argc, char **argv) {
     snprintf(path, sizeof(path), "%s/%s", outdir, drain[i]);
     dump(path);
   }
+  // Notification pass: the passive "token needed" prompt, the "received ✓" ack modal, and a toast.
+  ui_set_online(true, false);
+  ui_goto(2);   // clock screen shows behind the dim scrim
+  ui_modal_show(1, UI_SEV_WARN, 5, "TOKEN NEEDED",
+                "Run on your computer:\nnode claude_token_sync.js", nullptr, nullptr, nullptr);
+  settle(300);
+  dump_at(outdir, "12_token_needed.png");
+  ui_modal_clear(1);                       // passive -> clears (back to clock)
+  ui_toast(UI_SEV_ERROR, "Usage fetch failed", 3000);
+  settle(300);
+  dump_at(outdir, "13_toast.png");
+  ui_modal_show(1, UI_SEV_OK, 10, LV_SYMBOL_OK " TOKEN RECEIVED",
+                "New token received.\nUpdating your usage now.", "OK", nullptr, nullptr);
+  settle(300);
+  dump_at(outdir, "14_token_received.png");
+
   printf("done\n");
   return 0;
 }

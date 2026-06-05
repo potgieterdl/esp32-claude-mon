@@ -2,15 +2,17 @@
 #include "app_net.h"
 #include "app_config.h"
 #include "app_settings.h"
+#include "app_data.h"
+#include <ArduinoJson.h>
 #include <ElegantOTA.h>
 
 static WebServer server(80);
 
 WebServer &web_server() { return server; }
 
-// Basic-auth gate (user "admin", pass = proxy token) for the endpoints that expose secrets.
+// Basic-auth gate (user "admin", pass = the device token) for the endpoints that expose secrets.
 static bool require_auth() {
-  if (server.authenticate("admin", settings().proxy_token)) return true;
+  if (server.authenticate("admin", settings().device_token)) return true;
   server.requestAuthentication();
   return false;
 }
@@ -31,7 +33,7 @@ void web_begin() {
     server.send(200, "text/html", h);
   });
 
-  // Settings as JSON (Feature F0/F3). Auth-protected — it holds Wi-Fi + proxy secrets.
+  // Settings as JSON (Feature F0/F3). Auth-protected — it holds Wi-Fi + OAuth secrets.
   //   GET  /config.json            -> current settings
   //   PUT  /config.json  {json}    -> merge + persist to LittleFS, returns the new settings
   server.on("/config.json", HTTP_GET, []() {
@@ -40,18 +42,44 @@ void web_begin() {
   });
   auto apply_cfg = []() {
     if (!require_auth()) return;
+    String body = server.arg("plain");
     String err;
-    if (settings_apply_json(server.arg("plain"), err))
+    if (settings_apply_json(body, err)) {
+      // If this PUT delivered a USABLE OAuth token, confirm receipt on-screen and re-poll. Guard on
+      // settings_has_oauth() so a token-clearing PUT (empty strings) doesn't flash a false "received".
+      if ((body.indexOf("access_token") >= 0 || body.indexOf("refresh_token") >= 0) && settings_has_oauth())
+        data_note_token_synced();
       server.send(200, "application/json", settings_to_json());
-    else
+    } else
       server.send(400, "application/json", String("{\"error\":\"") + err + "\"}");
   };
   server.on("/config.json", HTTP_PUT,  apply_cfg);
   server.on("/config.json", HTTP_POST, apply_cfg);   // POST accepted too, for curl convenience
 
-  // OTA at /update — HTTP basic-auth (user "admin", pass = shared token).
+  // Live usage snapshot as JSON (auth-protected) — for setup/verification/debugging. Mirrors the
+  // numbers on screen + whether a token sync is needed and the last fetch error.
+  server.on("/status", HTTP_GET, []() {
+    if (!require_auth()) return;
+    JsonDocument doc;
+    doc["plan"]        = data_plan();
+    doc["valid"]       = data_valid();
+    doc["stale"]       = data_stale();
+    doc["needs_token"] = data_needs_token();
+    doc["age_seconds"] = data_age_seconds();
+    doc["last_error"]  = data_last_error();
+    doc["free_heap"]   = (uint32_t)ESP.getFreeHeap();
+    JsonObject f = doc["five_hour"].to<JsonObject>();
+    f["used_pct"] = data_five_hour_pct();  f["secs_left"] = data_five_hour_secs_left();
+    JsonObject w = doc["weekly"].to<JsonObject>();
+    w["used_pct"] = data_weekly_pct();     w["secs_left"] = data_weekly_secs_left();
+    if (data_has_weekly_opus()) doc["weekly_opus_pct"] = data_weekly_opus_pct();
+    String out; serializeJson(doc, out);
+    server.send(200, "application/json", out);
+  });
+
+  // OTA at /update — HTTP basic-auth (user "admin", pass = the device token).
   // Pass creds to begin(); a separate setAuth() gets cleared by begin()'s default empty creds.
-  ElegantOTA.begin(&server, "admin", settings().proxy_token);
+  ElegantOTA.begin(&server, "admin", settings().device_token);
 
   server.begin();
 }
