@@ -212,6 +212,7 @@ void data_begin() {
   s_lastError = "";
   s_lastPollMs = 0;
   s_firstPoll = true;
+  s_resetRepollFor = 0;
   s_needsToken = false;
 }
 

@@ -327,7 +327,9 @@ void ui_set_session(int p, long secs_left, const char *reset_at) {
   sess_update_ring(p);
   if (g_countdown) lv_obj_set_style_text_opa(g_countdown, LV_OPA_COVER, 0);  // active = full opacity
   if (secs_left >= 0) g_secs = secs_left;   // drives existing 1s countdown
-  if (reset_at && reset_at[0] && g_sess_at) lv_label_set_text(g_sess_at, reset_at);
+  // Always (re)set the sub-label so a prior "No current session" can't linger into an active
+  // render; empty when we have no reset time (e.g. clock not yet synced).
+  if (g_sess_at) lv_label_set_text(g_sess_at, (reset_at && reset_at[0]) ? reset_at : "");
 }
 
 // No active 5-hour window (it elapsed while idle): the usage API has no resets_at to count toward,
