@@ -1,0 +1,80 @@
+name: Feature request
+description: Propose a new feature or enhancement for the desk display
+title: "[feat]: "
+labels: ["type: feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Keep it **tightly scoped — one feature per issue**.
+        The clearer and more self-contained this is, the more likely Claude Code can
+        implement it directly. (An agent-context note is appended automatically on submit.)
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences. What should the device do that it doesn't today?
+      placeholder: Add a weather screen that swipes in after the device-status screen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation / problem
+      description: Why is this worth doing? What does it let you see or do at a glance?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: subsystem
+    attributes:
+      label: Affected subsystem
+      description: Which part of the repo does this touch? (Pick the primary one(s).)
+      multiple: true
+      options:
+        - "ui/ (portable LVGL UI)"
+        - "firmware/ (device glue, src/include)"
+        - "experiments/sim/ (desktop simulator)"
+        - "boards/ (hardware spec)"
+        - "data layer / Anthropic API + OAuth"
+        - "config / settings / OTA"
+        - "docs / adr"
+    validations:
+      required: true
+
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed approach
+      description: >
+        Optional but high-value. Point at the specific files/modules likely to change and
+        sketch the direction (don't prescribe exact code). If an ADR constrains this, link it.
+      placeholder: |
+        - New screen module in ui/ (mirror the existing screen pattern in ui.cpp)
+        - Fetch from <endpoint> in the data layer; reuse the CA-pinned HTTPS path
+        - Validate layout in experiments/sim/ before flashing
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Concrete, checkable conditions. This is what "done" means.
+      value: |
+        - [ ]
+        - [ ] Layout verified in the local simulator (PNG screenshot)
+        - [ ] FW_VERSION bumped in firmware/include/app_config.h
+        - [ ] No secrets added to tracked files
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Constraints / notes
+      description: RAM/flash budget, hardware limits, related issues, anything else.
+    validations:
+      required: false

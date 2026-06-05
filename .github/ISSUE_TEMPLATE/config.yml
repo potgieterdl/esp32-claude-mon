@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Roadmap (open feature requests)
+    url: https://github.com/potgieterdl/esp32-claude-mon/issues?q=is%3Aissue+is%3Aopen+label%3A%22type%3A+feature%22
+    about: Browse open feature requests before filing a new one.
+  - name: Flash-and-go epic (FR2)
+    url: https://github.com/potgieterdl/esp32-claude-mon/issues/10
+    about: The prebuilt-firmware + runtime-provisioning effort.

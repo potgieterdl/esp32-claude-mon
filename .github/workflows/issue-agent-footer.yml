@@ -1,0 +1,40 @@
+name: Append agent-context footer to issues
+
+# Form-template markdown blocks are display-only and never land in the issue body,
+# so we append the agent-context note here — on every newly opened issue — to make
+# sure a coding agent reading the issue always sees: read CLAUDE.md + run `orient`.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  footer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Append footer if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BODY: ${{ github.event.issue.body }}
+          NUM: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if printf '%s' "$BODY" | grep -q 'agent-footer'; then
+            echo "Footer already present — nothing to do."
+            exit 0
+          fi
+          {
+            printf '%s\n' "$BODY"
+            printf '\n<!-- agent-footer -->\n---\n'
+            printf '**🤖 For the coding agent:** Before starting, read '
+            printf '[CLAUDE.md](https://github.com/potgieterdl/esp32-claude-mon/blob/main/CLAUDE.md) '
+            printf 'and run the **`orient`** skill to build context on the affected subsystem. '
+            printf 'Follow all CLAUDE.md guidance — check `adr/` before any architectural decision, '
+            printf 'obey the folder rules in `.claude/rules/`, validate UI changes in the simulator '
+            printf '(not on-device screenshots), bump `FW_VERSION`, and run the secrets check before '
+            printf 'pushing. Open a PR whose body contains `Closes #<this issue number>`.\n'
+          } > /tmp/body.md
+          gh issue edit "$NUM" --repo "$REPO" --body-file /tmp/body.md

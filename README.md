@@ -154,9 +154,9 @@ see [`CLAUDE.md`](CLAUDE.md) → *Secrets & publishing*.
 | `adr/` | Architecture Decision Records — the *why* behind key choices |
 | `docs/` | `ARCHITECTURE.md`, schematic PDF, design mockups (`perf-notes`/`research-notes` are historical) |
 | `vendor/` | Upstream Waveshare + lcars-esp32 reference repos (gitignored) |
-| `CLAUDE.md` · `todo.md` | Dev workflow · roadmap (what's next) |
+| `CLAUDE.md` | Dev workflow · flashing recipes (roadmap lives in [GitHub Issues](https://github.com/potgieterdl/esp32-claude-mon/issues)) |
 
 ## More
 Hardware spec → **[`boards/…/SPEC.md`](boards/esp32c6/esp32-c6-touch-lcd-1.69/SPEC.md)** ·
 architecture → **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** · decisions → **[`adr/`](adr/README.md)** ·
-roadmap → **[`todo.md`](todo.md)** · dev workflow & flashing recipes → **[`CLAUDE.md`](CLAUDE.md)**.
+roadmap → **[GitHub Issues](https://github.com/potgieterdl/esp32-claude-mon/issues)** · dev workflow & flashing recipes → **[`CLAUDE.md`](CLAUDE.md)**.
