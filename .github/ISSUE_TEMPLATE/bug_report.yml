@@ -1,6 +1,5 @@
 name: Bug report
 description: Something on the device or in the build is broken
-title: "[bug]: "
 labels: ["type: bug"]
 body:
   - type: textarea
