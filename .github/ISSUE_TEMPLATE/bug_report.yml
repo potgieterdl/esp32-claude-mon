@@ -1,0 +1,52 @@
+name: Bug report
+description: Something on the device or in the build is broken
+title: "[bug]: "
+labels: ["type: bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe? Include what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: fw-version
+    attributes:
+      label: Firmware version
+      description: From the Device screen or GET / on the device (e.g. 1.8.0).
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where does it show up?
+      options:
+        - On-device (panel / touch / wifi)
+        - Build / flash / OTA
+        - Simulator
+        - Data (usage numbers / reset time wrong)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Serial is unreliable on the C6 — paste what you have (build log, / response, photo description).
+      render: shell
+    validations:
+      required: false

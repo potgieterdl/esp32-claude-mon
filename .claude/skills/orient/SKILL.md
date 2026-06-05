@@ -22,7 +22,9 @@ code says *how*, and you need both.
 ## 1. Read the canonical docs, in this order
 These are the single source of truth — read them top-down, don't duplicate or relitigate them.
 1. **`README.md`** — what the app is, delivered features, hardware, setup. The whole picture.
-2. **`todo.md`** — the roadmap (only what's left). Tells you if the task is already scoped here.
+2. **[GitHub Issues](https://github.com/potgieterdl/esp32-claude-mon/issues)** — the roadmap (only what's
+   left). Tells you if the task is already filed: check `gh issue list` (look for `agent: ready` + the
+   relevant `area:` label, and the `epic` issues for multi-phase efforts).
 3. **`adr/`** — the *why* behind key decisions. **Read any ADR relevant to the subsystem** before
    proposing an architectural change. Follow settled decisions; don't silently contradict one.
 4. Then whatever the task touches:
@@ -53,8 +55,9 @@ The most important step, and the easiest to skip. A subsystem is defined by its 
   live `/config.json` endpoint.) How is it refreshed?
 
 ## 5. Check the roadmap & known gaps for this subsystem
-Re-scan `todo.md` and the relevant rules/ADRs for items that touch this piece — half-built
-features, known bugs, "researched — see notes" flags. Surface them; the task may relate.
+Re-scan the open [GitHub Issues](https://github.com/potgieterdl/esp32-claude-mon/issues) (`gh issue list`,
+filter by `area:`) and the relevant rules/ADRs for items that touch this piece — half-built features, known
+bugs, "researched — see notes" flags. Surface them; the task may relate.
 
 ## 6. Report your understanding, then wait
 Write a **structured summary** back to the user before changing anything:

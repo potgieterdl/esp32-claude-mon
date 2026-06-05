@@ -2,7 +2,7 @@
 
 Short, numbered records of the **key** decisions behind this project — the *why*, so we don't relitigate
 settled choices or lose the "we tried X, it didn't work, so we chose Y" trail. Delivered features live in
-[`README.md`](../README.md); what's left lives in [`todo.md`](../todo.md); **ADRs are the reasoning**.
+[`README.md`](../README.md); what's left lives in [GitHub Issues](https://github.com/potgieterdl/esp32-claude-mon/issues); **ADRs are the reasoning**.
 
 ## Before you decide — check these first
 **Read the existing ADRs before making an architectural change.** A new choice should be *consistent* with

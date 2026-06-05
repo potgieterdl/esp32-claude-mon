@@ -11,13 +11,14 @@ the Anthropic usage API** over CA-pinned HTTPS, with the OAuth token refreshed o
 
 > **Read the docs in this order (single source of truth each — don't duplicate):**
 > 1. **[`README.md`](README.md)** FIRST — what the app is, its delivered **Features**, hardware, setup.
-> 2. **[`todo.md`](todo.md)** — the roadmap (only what's left to build).
+> 2. **[GitHub Issues](https://github.com/potgieterdl/esp32-claude-mon/issues)** — the roadmap (only what's
+>    left to build). Feature requests carry `type: feature`; **`agent: ready`** = vetted/scoped enough to pick up.
 > 3. Then whatever's relevant: **[`adr/`](adr/README.md)** (why key decisions were made) ·
 >    **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** (portable core ↔ device adapter, render path, modules) ·
 >    **hardware** → [`boards/<arch>/<slug>/SPEC.md`](boards/README.md) ·
 >    **rollback / build history** → [`firmware/releases/README.md`](firmware/releases/README.md).
 > Folder-scoped rules auto-load from [`.claude/rules/`](.claude/rules) when you edit `firmware/` or `ui/`
-> (incl. the **release checklist** that moves shipped features todo→README and pushes `main`).
+> (incl. the **release checklist** that closes the shipped issue, moves the feature into README, and pushes `main`).
 
 > **Before any non-obvious or architectural decision, CHECK [`adr/`](adr/README.md) FIRST.** Follow the
 > existing ADRs — don't relitigate or silently contradict a settled choice; if one genuinely needs to change,
@@ -42,6 +43,24 @@ the Anthropic usage API** over CA-pinned HTTPS, with the OAuth token refreshed o
 - **Edit UI in `ui/`** → preview in the simulator → only then flash. The `ui/` module is portable (no Arduino).
 - **Validate via the LOCAL sim, not on-device screenshots** (we tried; the device flush only has the logical
   LVGL buffer the sim already renders, and it costs ~134 KB RAM). **Sim = layout + data; physical photo = panel truth.**
+
+## Roadmap & issues (GitHub) — the work loop
+**The roadmap lives in [GitHub Issues](https://github.com/potgieterdl/esp32-claude-mon/issues), not a file.**
+`todo.md` is retired. Feature requests are filed via the issue forms in `.github/ISSUE_TEMPLATE/`; a GitHub
+Action appends an agent-context footer (read CLAUDE.md + run `orient`) to every new issue.
+- **Labels:** `type:` feature/bug/chore · `area:` ui/firmware/data/build/docs · `priority: high` · `status:`
+  blocked/in-progress · **`agent: ready`** (scoped, ready to implement) · `epic` (multi-phase, checklist).
+  Release versions are tracked with **milestones** (`fw-vX.Y.Z`).
+- **Pick → branch → PR → close.** One issue per change; the PR auto-closes it on merge to `main`:
+  ```powershell
+  gh issue list --label "agent: ready"           # what's ready to work
+  gh issue view <N>                              # the issue body IS the brief — read it fully
+  git switch -c feature/<N>-short-slug           # branch named after the issue
+  # ... implement, validate in the sim, bump FW_VERSION ...
+  gh pr create --base main --title "feat: … (closes #<N>)" --body "Closes #<N>`n`n<what changed>"
+  ```
+  Use `feature/`, `fix/`, or `chore/` branch prefixes. Put `Closes #<N>` in the **PR body** (auto-closes on
+  merge to the default branch). Reference other issues without closing as plain `#<N>`.
 
 ## Multi-agent (use where it helps)
 Delegate to subagents (the Agent tool) to keep the main context lean and to parallelize — it has paid off here:
@@ -114,6 +133,7 @@ is the template a new user fills in. **Checked in on purpose** (help contributor
   Both must come back empty. Built images embed compiled creds, so `firmware/releases/*.bin` stay gitignored.
   `.claude/settings.local.json` holds a private env id — gitignored; never commit it.
 
-> **What's done / what's next:** delivered features → [`README.md`](README.md#features); roadmap → [`todo.md`](todo.md).
+> **What's done / what's next:** delivered features → [`README.md`](README.md#features); roadmap →
+> [GitHub Issues](https://github.com/potgieterdl/esp32-claude-mon/issues).
 > On every version ship, follow the release checklist in [`.claude/rules/release.md`](.claude/rules/release.md)
-> (move the feature todo→README, add an ADR if it was a key decision, archive/tag, push `main`).
+> (close the issue, move the feature into README, add an ADR if it was a key decision, archive/tag, push `main`).
