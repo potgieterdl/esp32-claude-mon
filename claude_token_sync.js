@@ -78,7 +78,8 @@ function deviceOAuth(creds) {
   // inference-only `claude setup-token`, which 403s on /api/oauth/usage).
   const scopes = Array.isArray(o.scopes) ? o.scopes : [];
   if (scopes.length && !scopes.includes("user:profile")) {
-    console.warn(`⚠ this credential lacks the 'user:profile' scope (has: ${scopes.join(", ")}).`);
+    // Don't print the scope list (it's credential-derived) — just the actionable warning.
+    console.warn("⚠ this credential lacks the 'user:profile' scope the usage endpoint needs.");
     console.warn("  The device will get 403 from the usage endpoint. Use a normal subscription login.");
   }
   return {                                 // device /config.json snake_case shape
@@ -120,8 +121,7 @@ function deviceToken(cfg) {
   if (!has("--no-login")) claudeLogin();
 
   const oauth = deviceOAuth(readDeviceCreds());
-  const exp = oauth.expires_at ? new Date(oauth.expires_at).toISOString() : "n/a";
-  console.log(`Device credential ready (tier=${oauth.rate_limit_tier || "?"}, access expires ${exp}).`);
+  console.log("Device credential ready.");   // don't log credential-derived fields (tier/expiry)
 
   let cfg = {};
   const cfgPath = resolveConfigPath();
