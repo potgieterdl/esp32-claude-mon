@@ -156,21 +156,33 @@ int main(int argc, char **argv) {
     snprintf(path, sizeof(path), "%s/%s", outdir, drain[i]);
     dump(path);
   }
+  // Idle pass: no active 5h window (countdown elapsed + usage back at 0) -> faded "--:--" +
+  // "No current session"; then resume to confirm the sub-label clears and the countdown un-fades
+  // when a fresh window starts.
+  ui_set_online(true, false);
+  ui_goto(0);
+  ui_set_session_idle(0);
+  settle(1100);   // let the 1 Hz timer fire so the faded "--:--" is shown
+  dump_at(outdir, "12_session_idle.png");
+  ui_set_session(12, 7200, "at 6:15 PM");   // a fresh window starts -> live countdown returns
+  settle(1100);
+  dump_at(outdir, "13_session_resumed.png");
+
   // Notification pass: the passive "token needed" prompt, the "received ✓" ack modal, and a toast.
   ui_set_online(true, false);
   ui_goto(2);   // clock screen shows behind the dim scrim
   ui_modal_show(1, UI_SEV_WARN, 5, "TOKEN NEEDED",
                 "Run on your computer:\nnode claude_token_sync.js", nullptr, nullptr, nullptr);
   settle(300);
-  dump_at(outdir, "12_token_needed.png");
+  dump_at(outdir, "14_token_needed.png");
   ui_modal_clear(1);                       // passive -> clears (back to clock)
   ui_toast(UI_SEV_ERROR, "Usage fetch failed", 3000);
   settle(300);
-  dump_at(outdir, "13_toast.png");
+  dump_at(outdir, "15_toast.png");
   ui_modal_show(1, UI_SEV_OK, 10, LV_SYMBOL_OK " TOKEN RECEIVED",
                 "New token received.\nUpdating your usage now.", "OK", nullptr, nullptr);
   settle(300);
-  dump_at(outdir, "14_token_received.png");
+  dump_at(outdir, "16_token_received.png");
 
   printf("done\n");
   return 0;
