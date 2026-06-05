@@ -56,11 +56,18 @@ Action appends an agent-context footer (read CLAUDE.md + run `orient`) to every 
   gh issue list --label "agent: ready"           # what's ready to work
   gh issue view <N>                              # the issue body IS the brief — read it fully
   git switch -c feature/<N>-short-slug           # branch named after the issue
-  # ... implement, validate in the sim, bump FW_VERSION ...
+  # ... implement, validate in the sim, bump FW_VERSION, then the pre-PR review (below) ...
   gh pr create --base main --title "feat: … (closes #<N>)" --body "Closes #<N>`n`n<what changed>"
   ```
   Use `feature/`, `fix/`, or `chore/` branch prefixes. Put `Closes #<N>` in the **PR body** (auto-closes on
   merge to the default branch). Reference other issues without closing as plain `#<N>`.
+- **Pre-PR architectural review (required before opening a code PR).** Before `gh pr create`, spawn an
+  **independent subagent** (the Agent tool) to review the diff against `main`. Brief it to weigh **SOLID**,
+  **DRY**, and general best practices alongside this project's conventions (portable `ui/` boundary,
+  honest-display, the render-path/ADR decisions) and to **report back ONLY noteworthy items** — blockers /
+  should-fix / notable nits, no rubber-stamping or restating what's fine. Resolve blockers + should-fix
+  before creating the PR; note any deliberately-deferred items in the PR body. Skip only for trivial
+  doc/copy/config changes.
 
 ## Multi-agent (use where it helps)
 Delegate to subagents (the Agent tool) to keep the main context lean and to parallelize — it has paid off here:
