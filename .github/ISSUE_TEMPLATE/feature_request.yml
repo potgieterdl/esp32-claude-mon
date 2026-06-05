@@ -1,6 +1,5 @@
 name: Feature request
 description: Propose a new feature or enhancement for the desk display
-title: "[feat]: "
 labels: ["type: feature"]
 body:
   - type: markdown
