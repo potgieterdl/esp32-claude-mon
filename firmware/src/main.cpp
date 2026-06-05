@@ -16,6 +16,7 @@
 #include "app_audio.h"
 #include "app_time.h"
 #include "app_view.h"
+#include "app_diag.h"
 #include "app_config.h"
 #include "app_settings.h"
 #include <Preferences.h>
@@ -158,6 +159,7 @@ void setup() {
   time_begin();  // NTP + RTC (F6)
   g_last_activity_ms = millis();   // start the idle-dim clock now (don't dim during boot)
   Serial.println("[net+web+data+audio+time] started");
+  diag_begin();    // dev-time serial diagnostics: reset reason + I2C scan + log-error counter
 }
 
 void loop() {
@@ -169,6 +171,7 @@ void loop() {
 
   view_tick();        // 1Hz data -> UI (presenter)
   update_backlight();  // live brightness + dim-on-idle
+  diag_loop();         // ~10s serial health line (dev-time)
 
   delay(1);   // tighter LVGL cadence for smoother swipe/animation
 }

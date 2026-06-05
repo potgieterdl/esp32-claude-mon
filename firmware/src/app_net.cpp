@@ -7,6 +7,8 @@
 static volatile bool     s_online     = false;
 static volatile uint32_t s_ip_raw     = 0;   // IPAddress packed as a 32-bit word (atomic across tasks)
 static volatile uint32_t s_down_since = 0;   // millis() we went offline; 0 while online
+static volatile uint32_t s_connects   = 0;   // GOT_IP events (initial + reconnects) — diagnostics
+static volatile uint32_t s_disconnects = 0;  // STA_DISCONNECTED events — diagnostics
 
 // Runs in the WiFi event task — keep it minimal. Reconnect is driven from net_loop()
 // (NOT here): calling WiFi.reconnect() inside the event callback races the core's own
@@ -17,10 +19,12 @@ static void onEvent(WiFiEvent_t e) {
       s_ip_raw     = (uint32_t)WiFi.localIP();
       s_online     = true;
       s_down_since = 0;
+      s_connects++;
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       s_online = false;
       if (s_down_since == 0) s_down_since = millis();
+      s_disconnects++;
       break;
     default:
       break;
@@ -62,3 +66,5 @@ bool        net_online() { return s_online; }
 String      net_ip()     { return IPAddress((uint32_t)s_ip_raw).toString(); }  // format fresh, no shared String
 int         net_rssi()   { return s_online ? WiFi.RSSI() : 0; }
 const char *net_ssid()   { return settings().wifi_ssid; }
+uint32_t    net_connects()    { return s_connects; }
+uint32_t    net_disconnects() { return s_disconnects; }
