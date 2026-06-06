@@ -24,7 +24,7 @@ this doc is the app/software view.
 | `app_web` | HTTP server: `/` status · `/config.json` settings · `/status` usage JSON · `/notify` "needs input" alert · `/update` OTA (ElegantOTA) |
 | `app_data` | Calls `api.anthropic.com/api/oauth/usage` directly (CA-pinned HTTPS, OAuth bearer) → cached usage snapshot (stale = age-based); refreshes its own OAuth token on-device |
 | `app_notify` | "Needs input" alert state (issue #2): set/cleared by `app_web`'s `/notify` endpoint (a Claude Code hook POSTs it), read by `app_view`. Pure state — exposes the alert's age; the presenter enforces the safety timeout |
-| `app_view` | 1 Hz presenter: device state → `ui_set_*`; usage-chime FSM; reset-drain trigger; raises the "input needed" banner + chime and enforces its safety timeout |
+| `app_view` | 1 Hz presenter: device state → `ui_set_*`; usage-chime FSM; reset-drain trigger; idle "sleep mode" nav (drifts to Clock + sleeping bot after `sleep_after_s` idle+untouched, wakes to Session on the activity edge); raises the "input needed" banner + chime and enforces its safety timeout |
 | `app_time` | NTP + PCF85063 RTC; timezone from settings |
 | `app_audio` | ES8311 chimes on a dedicated FreeRTOS task (never block the LVGL loop) |
 | `app_diag` | Dev-time serial diagnostics: boot banner (reset reason + I2C bus scan) + ~10 s health line (heap, RSSI, WiFi drops, data age); USB-serial only, silent headless (`if(Serial)`) |

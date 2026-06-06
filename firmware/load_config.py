@@ -40,6 +40,7 @@ else:
     if "dim_after_s" in disp:    defs.append(("CFG_DIM_AFTER_S",    int(disp["dim_after_s"])))
     if "dim_brightness" in disp: defs.append(("CFG_DIM_BRIGHTNESS", int(disp["dim_brightness"])))
     if "dim_on_idle" in disp:    defs.append(("CFG_DIM_ON_IDLE", 1 if disp["dim_on_idle"] else 0))
+    if "sleep_after_s" in disp:  defs.append(("CFG_SLEEP_AFTER_S", int(disp["sleep_after_s"])))
 
     env.Append(CPPDEFINES=defs)
     print(f"[load_config] {os.path.relpath(cfg_path, proj)} -> injected {len(defs)} settings "

@@ -201,6 +201,29 @@ static void build_weekly(lv_obj_t *t) {
   mklabel(r1, "THU", &lv_font_montserrat_14, C_INK);
 }
 
+// ── Sleeping companion (#6) ─────────────────────────────────
+// A small coral Claude bot dozing in the Clock screen's bottom-left corner with three "Z"s that
+// drift up-right and fade, looped. The whole group lives under g_sleep_grp (hidden until idle).
+// Built from shapes/labels only (portable; no image decoder). Only the Zzz move; the bot is static.
+static lv_obj_t *g_sleep_grp = nullptr;             // bottom-left container on the Clock tile
+static lv_obj_t *g_zzz[3]    = {nullptr, nullptr, nullptr};
+static int32_t   g_zzz_phase = 0;                   // lv_anim identity token (value unused)
+static bool      g_sleeping  = false;
+static const int Z_BX[3] = {40, 52, 64};            // base x (container-rel), small → large
+static const int Z_BY[3] = {56, 40, 24};            // base y (container-rel), lower → higher
+
+// One animation drives all three Z's by a shared 0..1000 phase; each is staggered a third of a
+// cycle so there's always a Z rising. Per Z: rise + slight right drift, opacity fades in then out.
+static void zzz_exec(void *, int32_t v) {
+  for (int i = 0; i < 3; i++) {
+    if (!g_zzz[i]) continue;
+    int li  = (int)(((uint32_t)v + (uint32_t)i * 333u) % 1000u);  // 0..999, staggered
+    int tri = li < 500 ? li : (1000 - li);                        // 0→500→0 triangle
+    lv_obj_set_style_text_opa(g_zzz[i], (lv_opa_t)(tri * 255 / 500), 0);
+    lv_obj_set_pos(g_zzz[i], Z_BX[i] + li * 6 / 1000, Z_BY[i] - li * 16 / 1000);  // drift up-right
+  }
+}
+
 // ── Screen 3: Clock ─────────────────────────────────────────
 static void build_clock(lv_obj_t *t) {
   topbar(t, "CLOCK", C_TRACK, C_DIM);
@@ -214,6 +237,45 @@ static void build_clock(lv_obj_t *t) {
   lv_obj_t *nx = mklabel(t, "", &lv_font_montserrat_12, C_CORAL);   // live next-reset (blank until data)
   lv_obj_align(nx, LV_ALIGN_BOTTOM_MID, 0, -22);
   g_clock_next = nx;
+
+  // Sleeping companion — bottom-left so it clears the centred time/date; hidden until ui_set_sleeping.
+  g_sleep_grp = lv_obj_create(t); plain(g_sleep_grp);
+  lv_obj_set_size(g_sleep_grp, 100, 86);
+  lv_obj_align(g_sleep_grp, LV_ALIGN_BOTTOM_LEFT, 8, -16);
+  lv_obj_add_flag(g_sleep_grp, LV_OBJ_FLAG_HIDDEN);
+
+  lv_obj_t *head = lv_obj_create(g_sleep_grp);
+  lv_obj_set_size(head, 36, 30);
+  lv_obj_align(head, LV_ALIGN_BOTTOM_LEFT, 6, -6);
+  lv_obj_set_style_bg_color(head, C_CORAL, 0);
+  lv_obj_set_style_bg_opa(head, LV_OPA_COVER, 0);
+  lv_obj_set_style_radius(head, 9, 0);
+  lv_obj_set_style_border_width(head, 0, 0);
+  lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
+  for (int i = 0; i < 2; i++) {                       // two closed, sleepy eyes (dark dashes)
+    lv_obj_t *eye = lv_obj_create(head);
+    lv_obj_set_size(eye, 8, 3);
+    lv_obj_set_style_radius(eye, 1, 0);
+    lv_obj_set_style_bg_color(eye, C_BG, 0);
+    lv_obj_set_style_bg_opa(eye, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(eye, 0, 0);
+    lv_obj_remove_flag(eye, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_align(eye, LV_ALIGN_CENTER, i == 0 ? -7 : 7, -3);
+  }
+  lv_obj_t *mouth = lv_obj_create(head);             // tiny open "o" snore mouth
+  lv_obj_set_size(mouth, 6, 6);
+  lv_obj_set_style_radius(mouth, 3, 0);
+  lv_obj_set_style_bg_color(mouth, C_BG, 0);
+  lv_obj_set_style_bg_opa(mouth, LV_OPA_COVER, 0);
+  lv_obj_set_style_border_width(mouth, 0, 0);
+  lv_obj_remove_flag(mouth, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_align(mouth, LV_ALIGN_CENTER, 0, 8);
+
+  const lv_font_t *zf[3] = {&lv_font_montserrat_12, &lv_font_montserrat_14, &lv_font_montserrat_16};
+  for (int i = 0; i < 3; i++) {                       // the drifting Zzz (positioned by zzz_exec)
+    g_zzz[i] = mklabel(g_sleep_grp, "Z", zf[i], C_CORAL);
+    lv_obj_set_pos(g_zzz[i], Z_BX[i], Z_BY[i]);
+  }
 }
 
 // ── Screen 4: Device ────────────────────────────────────────
@@ -275,6 +337,7 @@ static lv_color_t pct_color(int p) {
 #define RESET_DROP_PCT 5       // a fall of >= this since the last shown value counts as a reset
 static int  s_sess_shown = -1, s_wk_shown = -1;   // last value applied (-1 = blank/unknown)
 static bool s_sess_anim  = false, s_wk_anim  = false;
+static bool s_sess_idle  = false;  // no active 5h window → the ring % reads "--" (not "0%"), per #6
 
 static void sess_apply(int v) {
   if (g_sess_ring) {
@@ -297,7 +360,10 @@ static void wk_apply(int v) {
 }
 static void sess_anim_exec(void *, int32_t v) { sess_apply((int)v); }
 static void wk_anim_exec  (void *, int32_t v) { wk_apply((int)v); }
-static void sess_anim_done(lv_anim_t *) { s_sess_anim = false; }
+static void sess_anim_done(lv_anim_t *) {
+  s_sess_anim = false;
+  if (s_sess_idle && g_sess_pct) lv_label_set_text(g_sess_pct, "--");  // drained into idle → blank the %
+}
 static void wk_anim_done  (lv_anim_t *) { s_wk_anim  = false; }
 
 static void start_drain(lv_obj_t *var, lv_anim_exec_xcb_t exec, lv_anim_ready_cb_t done, int from, int to) {
@@ -324,6 +390,7 @@ static void sess_update_ring(int p) {
 }
 
 void ui_set_session(int p, long secs_left, const char *reset_at) {
+  s_sess_idle = false;          // a live window → show the real % again
   sess_update_ring(p);
   if (g_countdown) lv_obj_set_style_text_opa(g_countdown, LV_OPA_COVER, 0);  // active = full opacity
   if (secs_left >= 0) g_secs = secs_left;   // drives existing 1s countdown
@@ -336,7 +403,11 @@ void ui_set_session(int p, long secs_left, const char *reset_at) {
 // so show a faded "--:--" + "No current session" instead of a frozen 0:00. The live countdown
 // returns automatically once a new window starts (presenter switches back to ui_set_session).
 void ui_set_session_idle(int p) {
-  sess_update_ring(p);
+  s_sess_idle = true;
+  sess_update_ring(p);   // still drains the ring down if a window just reset; arc settles empty at 0
+  // No active window → the % is meaningless, so blank it to "--" (matches "nothing on"). If a drain
+  // is in flight the blank is applied by sess_anim_done when it finishes.
+  if (!s_sess_anim && g_sess_pct) lv_label_set_text(g_sess_pct, "--");
   g_secs = -1;                                                          // countdown → "--:--"
   if (g_countdown) lv_obj_set_style_text_opa(g_countdown, LV_OPA_50, 0);  // faded (de-emphasised)
   if (g_sess_at)   lv_label_set_text(g_sess_at, "No current session");
@@ -369,6 +440,7 @@ void ui_clear_usage() {
   if (g_clock_next)  lv_label_set_text(g_clock_next, "");   // Clock screen "next reset" is session data too
   if (g_countdown)   lv_obj_set_style_text_opa(g_countdown, LV_OPA_COVER, 0);  // un-fade (may have been idle)
   s_sess_shown = s_wk_shown = -1;
+  s_sess_idle = false;   // offline blank, not the idle "no session" state
   g_secs = -1;   // countdown → "--:--"
 }
 
@@ -407,6 +479,25 @@ void ui_set_clock(const char *time_str, const char *date_str) {
 
 void ui_set_clock_reset(const char *next_reset) {   // e.g. "next reset 4:30 PM"; "" hides it
   setlbl(g_clock_next, next_reset);
+}
+
+void ui_set_sleeping(bool sleeping) {
+  if (sleeping == g_sleeping || !g_sleep_grp) return;   // idempotent
+  g_sleeping = sleeping;
+  if (sleeping) {
+    lv_obj_remove_flag(g_sleep_grp, LV_OBJ_FLAG_HIDDEN);
+    lv_anim_t a; lv_anim_init(&a);
+    lv_anim_set_var(&a, &g_zzz_phase);                   // identity token only (value unused)
+    lv_anim_set_values(&a, 0, 1000);
+    lv_anim_set_duration(&a, 2600);
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_path_cb(&a, lv_anim_path_linear);
+    lv_anim_set_exec_cb(&a, zzz_exec);
+    lv_anim_start(&a);
+  } else {
+    lv_anim_del(&g_zzz_phase, zzz_exec);                 // stop the loop → no render cost when awake
+    lv_obj_add_flag(g_sleep_grp, LV_OBJ_FLAG_HIDDEN);
+  }
 }
 
 lv_obj_t *ui_build_splash(const char *version) {
@@ -635,7 +726,7 @@ void ui_goto(int idx) {
   set_dot(idx);
 }
 
-void ui_goto_anim(int idx) {   // animated slide (used for the one-time Clock->Session reveal once connected)
+void ui_goto_anim(int idx) {   // animated slide (presenter-driven: activity reveal → Session, idle drift → Clock)
   if (idx < 0 || idx > 3 || !g_tv) return;
   lv_obj_set_tile_id(g_tv, idx, 0, LV_ANIM_ON);
   set_dot(idx);

@@ -48,7 +48,7 @@ void view_begin() {
   digitalWrite(BAT_EN, HIGH);
 }
 
-void view_tick() {
+void view_tick(uint32_t input_idle_ms) {
   static uint32_t lastPush = 0;
   uint32_t now = millis();
   if (now - lastPush < 1000) return;   // ~1 Hz
@@ -142,13 +142,36 @@ void view_tick() {
     ui_set_clock("--:--", "SYNCING");
   }
 
-  // One-time smooth reveal: we boot on the Clock screen; the first time we're connected with
-  // live data, slide over to the Session screen so usage is front-and-centre.
-  static bool revealed = false;
-  if (!revealed && net_online() && data_valid() && !data_stale()) {
+  // ── Idle "sleep mode" (#6) ────────────────────────────────────────────────
+  // We boot on the Clock screen. When a live 5-hour window appears we slide to Session so usage is
+  // front-and-centre (this also serves as the first-connect reveal). When Claude has been *fully
+  // idle* (window expired → ring "--") for sleep_after_s AND there's been no touch for that long, we
+  // drift back to the Clock and a small bot dozes. A touch nudges the bot awake (staying put); fresh
+  // activity wakes it straight to Session. sleep_after_s == 0 disables the whole behaviour.
+  bool fresh  = data_valid() && !data_stale();
+  bool active = fresh && data_five_hour_secs_left() > 0;                                  // live window
+  bool idle   = fresh && data_five_hour_secs_left() == 0 && data_five_hour_pct() == 0;    // fully expired
+  uint32_t sleep_after = (uint32_t)settings().sleep_after_s * 1000;
+
+  static bool     was_active = false;   // last *definite* activity reading (held across stale blips)
+  static bool     asleep     = false;
+  static uint32_t idle_since = 0;
+  if (!idle) idle_since = now;          // the idle clock only runs while we positively know it's idle
+
+  if (active && !was_active) {                       // activity resumed (incl. first connect) → Session
+    ui_set_sleeping(false); asleep = false;
     ui_goto_anim(0);
-    revealed = true;
+  } else if (asleep && input_idle_ms < 2000) {       // a touch nudges the bot awake; stay where we are
+    ui_set_sleeping(false); asleep = false;
+  } else if (!asleep && idle && sleep_after &&       // long-idle + untouched → drift to the dozing Clock
+             (now - idle_since) >= sleep_after && input_idle_ms >= sleep_after) {
+    ui_goto_anim(2);
+    ui_set_sleeping(true); asleep = true;
   }
+  // Latch only on a *definite* classification (active or fully-idle). The transient secs_left == -1
+  // reading (null five_hour / time-sync drop) and stale/offline blips leave was_active untouched, so
+  // they can't re-fire the wake and yank the user off the screen they're on.
+  if (active || idle) was_active = active;
 
   // Device screen
   bool on = net_online();
