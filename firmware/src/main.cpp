@@ -169,7 +169,7 @@ void loop() {
   data_loop();
   time_loop();
 
-  view_tick();        // 1Hz data -> UI (presenter)
+  view_tick(millis() - g_last_activity_ms);   // 1Hz data -> UI; pass touch-idle for sleep mode (#6)
   update_backlight();  // live brightness + dim-on-idle
   diag_loop();         // ~10s serial health line (dev-time)
 

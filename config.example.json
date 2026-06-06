@@ -9,7 +9,7 @@
     "poll_seconds": 60,
     "tz": "GMT0IST,M3.5.0/1,M10.5.0",
     "thresholds": { "warn_pct": 70, "max_pct": 100 },
-    "display": { "brightness": 50, "dim_on_idle": false, "dim_after_s": 60, "dim_brightness": 10 }
+    "display": { "brightness": 50, "dim_on_idle": false, "dim_after_s": 60, "dim_brightness": 10, "sleep_after_s": 300 }
   },
   "oauth": null
 }

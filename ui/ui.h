@@ -30,6 +30,11 @@ void ui_clear_usage();   // blank Session/Weekly figures to "--" when offline / 
 void ui_set_clock(const char *time_str, const char *date_str);  // Clock screen (F6)
 void ui_set_clock_reset(const char *next_reset);   // Clock screen "next reset .." line ("" to hide)
 
+// Sleep mode (#6): show/hide a small sleeping Claude bot + drifting "Zzz" tucked in the Clock
+// screen's corner (the clock stays the hero). Idempotent; the presenter calls this when Claude
+// has been idle long enough. Tears down the Zzz animation when off → no render cost when awake.
+void ui_set_sleeping(bool sleeping);
+
 // Boot splash (Concept A): builds on its OWN screen (coral ring sweep + version fade-in).
 // Caller loads it, then transitions to the main screen after ~5s. Returns the screen obj.
 lv_obj_t *ui_build_splash(const char *version);
