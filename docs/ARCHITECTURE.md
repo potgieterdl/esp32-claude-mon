@@ -26,6 +26,7 @@ this doc is the app/software view.
 | `app_view` | 1 Hz presenter: device state → `ui_set_*`; usage-chime FSM; reset-drain trigger |
 | `app_time` | NTP + PCF85063 RTC; timezone from settings |
 | `app_audio` | ES8311 chimes on a dedicated FreeRTOS task (never block the LVGL loop) |
+| `app_diag` | Dev-time serial diagnostics: boot banner (reset reason + I2C bus scan) + ~10 s health line (heap, RSSI, WiFi drops, data age); USB-serial only, silent headless (`if(Serial)`) |
 
 ## Render path (the smoothness win — **do not revert**)
 **LovyanGFX async GDMA** + **double partial buffers** (overlaps SPI transfer with CPU render — the only
