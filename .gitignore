@@ -19,6 +19,10 @@ firmware/data/config.json
 .claude/settings.local.json
 **/settings.local.json
 
+# Per-session `claude --worktree` checkouts live inside the repo — never commit them
+# (each is its own working tree on its own branch; registration lives in .git/worktrees/).
+.claude/worktrees/
+
 # Built firmware images embed compiled-in secrets (wifi creds) — keep local only
 firmware/releases/*.bin
 
