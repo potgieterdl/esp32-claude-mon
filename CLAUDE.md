@@ -66,13 +66,16 @@ Action appends an agent-context footer (read CLAUDE.md + run `orient`) to every 
   merge to the default branch). Reference other issues without closing as plain `#<N>`.
 - **You review and merge every PR manually — the agent never runs `gh pr merge`** unless you say so in that
   moment. After your merge: `--delete-branch` + prune local merged branches.
-- **Working-tree safety (another agent or you may have a different branch checked out in this same folder).**
-  - **Before every commit:** check `git branch --show-current` + `git status` — never assume you're on your
-    own branch (a commit can silently land on someone else's WIP).
-  - **To change `main` while another branch is checked out, use a throwaway `git worktree`** (`git worktree
-    add -b <branch> <path> origin/main` → commit/push/PR → `git worktree remove`), *not* `git switch` — which
-    carries or clobbers their WIP.
-  - **Stage explicit paths** (`git add <file>…`), never `git add -A`.
+- **Working-tree safety — each session runs in its own `claude --worktree`, which isolates branches.** A
+  session has its own working dir + branch, and git refuses to check out one branch in two worktrees, so a
+  commit can't silently land on another session's WIP. Two residual rules:
+  - **The repo root is the unsafe spot:** it's a worktree with `main` checked out, so a *plain* `claude`
+    (no `-w`) launched there commits straight onto `main`. Before committing anywhere, sanity-check `git
+    branch --show-current` + `git status`; to change `main`, branch first (or use a throwaway `git worktree
+    add -b <branch> <path> origin/main` → PR → `git worktree remove`), never `git switch` in place.
+  - **Stage explicit paths** (`git add <file>…`), never `git add -A` — the per-session worktrees live under
+    `.claude/worktrees/` *inside* the repo (gitignored), so a blanket add from the root can still rope in
+    other trees or build artifacts.
 - **Epics = one issue and one PR — never sub-issues, never a drip of small PRs.** An epic is a *single
   cohesive feature*; its body carries a **`## Todo`** section — a markdown `[ ]` checklist of subtasks (the
   work breakdown, sibling to acceptance criteria). Build the whole feature on **one** branch (multiple commits
