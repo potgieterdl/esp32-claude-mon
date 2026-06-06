@@ -80,9 +80,9 @@ void web_begin() {
 
   // "Needs input" alert (issue #2) — a Claude Code hook POSTs here when a session is waiting on
   // the user, and again to clear it. Auth-protected (same device token). Body is JSON:
-  //   {"event":"needs_input","project":"my-repo"}   -> raise banner + chime  (project optional)
-  //   {"event":"clear"}                              -> lower banner
-  // The presenter (app_view) reads notify_input_* each tick and drives the modal/chime.
+  //   {"event":"needs_input"}   -> raise banner + chime
+  //   {"event":"clear"}         -> lower banner
+  // Any extra fields are ignored. The presenter (app_view) reads notify_input_* each tick.
   server.on("/notify", HTTP_POST, []() {
     if (!require_auth()) return;
     JsonDocument doc;
@@ -92,7 +92,7 @@ void web_begin() {
     }
     const char *event = doc["event"] | "";
     if (!strcmp(event, "needs_input")) {
-      notify_input_set(doc["project"] | "");
+      notify_input_set();
       server.send(200, "application/json", "{\"ok\":true,\"state\":\"needs_input\"}");
     } else if (!strcmp(event, "clear")) {
       notify_input_clear();

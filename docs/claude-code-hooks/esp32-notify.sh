@@ -11,7 +11,6 @@
 #   CLAUDE_MONITOR_TOKEN  (required)  the device token  (config.json → device.token)
 #   CLAUDE_MONITOR_HOST   (optional)  default: claude-monitor.local
 #
-# Claude Code pipes the event as JSON on stdin; the project name is the last component of ".cwd".
 # The hook ALWAYS exits 0 and never blocks Claude — a missing token or unreachable device is a no-op.
 set +e
 signal="${1:-needs_input}"
@@ -19,15 +18,7 @@ host="${CLAUDE_MONITOR_HOST:-claude-monitor.local}"
 token="${CLAUDE_MONITOR_TOKEN:-}"
 [ -z "$token" ] && exit 0          # not configured → silently do nothing
 
-if [ "$signal" = "clear" ]; then
-  body='{"event":"clear"}'
-else
-  # Pull "cwd" out of the JSON without needing jq, normalise \ → / (Windows paths), take the leaf.
-  input="$(cat)"
-  cwd="$(printf '%s' "$input" | sed -n 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | tr '\\' '/')"
-  project="$(basename "$cwd" 2>/dev/null)"
-  body="{\"event\":\"needs_input\",\"project\":\"${project}\"}"
-fi
+[ "$signal" = "clear" ] && body='{"event":"clear"}' || body='{"event":"needs_input"}'
 
 curl -s -m 5 -u "admin:$token" -H "Content-Type: application/json" -d "$body" \
   "http://$host/notify" >/dev/null 2>&1

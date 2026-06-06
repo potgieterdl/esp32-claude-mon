@@ -129,13 +129,14 @@ The device is reachable by mDNS as **`claude-monitor.local`** (or its DHCP IP).
 | `/` | none | status page — firmware, wifi/ip, uptime, free heap |
 | `/config.json` | `admin`/token | GET/PUT runtime settings (holds wifi + oauth secrets) |
 | `/status` | `admin`/token | GET JSON usage snapshot — plan/valid/stale/needs_token/five_hour/weekly |
-| `/notify` | `admin`/token | POST `{"event":"needs_input"\|"clear"[,"project":"…"]}` — "needs input" alert (`project` optional; see below) |
+| `/notify` | `admin`/token | POST `{"event":"needs_input"\|"clear"}` — "needs input" alert (see below) |
 | `/update` | `admin`/token | OTA firmware upload (ElegantOTA) |
 
 ### "Needs input" alerts (Claude Code hooks)
-Light the display when a Claude Code session is waiting on you — a banner (**⚠ INPUT NEEDED** +
-project) and a soft chime — and clear it when you reply. Driven by Claude Code's `Notification`
-(fires on a permission prompt / ~60 s idle) and `UserPromptSubmit` hooks POSTing to `/notify`.
+Light the display when a Claude Code session is waiting on you — a **"Claude needs your input ·
+Check your terminal"** banner (with a green **OK** button and a chime) — and clear it when you reply
+or tap OK. Driven by Claude Code's `Notification` (fires on a permission prompt / ~60 s idle) and
+`UserPromptSubmit` hooks POSTing to `/notify`.
 Copy-paste hook scripts (bash + PowerShell) and the `settings.json` wiring are in
 [`docs/claude-code-hooks/`](docs/claude-code-hooks/README.md).
 

@@ -6,14 +6,16 @@ come back. The device exposes an authenticated `POST /notify` endpoint (issue #2
 
 | Claude Code event | Fires when… | We send |
 |---|---|---|
-| `Notification` | Claude is blocked on a permission prompt, or you've been idle ~60 s | `{"event":"needs_input","project":"<repo>"}` → banner + chime |
+| `Notification` | Claude is blocked on a permission prompt, or you've been idle ~60 s | `{"event":"needs_input"}` → banner + chime |
 | `UserPromptSubmit` | You submit your next prompt | `{"event":"clear"}` → banner clears |
 
-The device also self-clears the banner after 15 min, so a missed `UserPromptSubmit` (e.g. you
-*approved a permission dialog* instead of typing) can't pin it forever.
+On the device this shows a **"Claude needs your input · Check your terminal"** banner (with a green
+**OK** button) and a chime. Besides the next prompt, the banner also clears if you tap **OK**, or
+after a 15-min safety timeout — so a missed `UserPromptSubmit` (e.g. you *approved a permission
+dialog* instead of typing) can't pin it forever.
 
-> **One banner, last-writer-wins.** If you run Claude in two projects at once they share the single
-> banner. Fine for a desk signal; just know the newest "needs input" wins the display.
+> **One banner.** If you run Claude in several projects at once they share the single banner — it
+> just says "input needed", not which project. Fine for an at-a-glance desk signal.
 
 ## Setup
 
@@ -64,12 +66,15 @@ PowerShell version — same structure, with the `command` strings escaped for JS
 }
 ```
 
+> `$HOME` is expanded by the shell Claude Code launches the hook with (bash / Git Bash). If your
+> setup doesn't expand it, use the script's **absolute path** instead (e.g. `C:\Users\you\.claude\hooks\esp32-notify.ps1`).
+
 **4. Test it** without Claude Code — POST directly (the hooks just wrap this):
 
 ```bash
 TOKEN="your-device-token"
 curl -s -u "admin:$TOKEN" -H "Content-Type: application/json" \
-     -d '{"event":"needs_input","project":"demo"}' http://claude-monitor.local/notify   # → banner + chime
+     -d '{"event":"needs_input"}' http://claude-monitor.local/notify                    # → banner + chime
 curl -s -u "admin:$TOKEN" -H "Content-Type: application/json" \
      -d '{"event":"clear"}' http://claude-monitor.local/notify                          # → clears
 ```

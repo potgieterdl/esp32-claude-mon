@@ -48,6 +48,10 @@ void view_begin() {
   digitalWrite(BAT_EN, HIGH);
 }
 
+// OK button on the "needs input" banner: clear the alert state so the presenter stops re-showing it
+// (the banner ALSO auto-clears on the next UserPromptSubmit hook, or the safety timeout below).
+static void input_modal_dismiss(int id, int button) { (void)id; (void)button; notify_input_clear(); }
+
 void view_tick(uint32_t input_idle_ms) {
   static uint32_t lastPush = 0;
   uint32_t now = millis();
@@ -57,38 +61,37 @@ void view_tick(uint32_t input_idle_ms) {
   if (time_valid()) data_set_now(time_now());
 
   // ── Notifications (single modal slot, priority-ordered) ──────────────────────────────────────
-  // 10 TOKEN RECEIVED (ack, one-shot)  >  7 INPUT NEEDED (passive)  >  5 TOKEN NEEDED (passive).
-  // The ack-modal is protected by ui_modal_show's own guard; the two PASSIVE modals share the one
-  // slot, so we pick exactly one winner each tick (a later show would otherwise stomp an earlier).
-  // Safety net: clear a stuck alert whose "clear" POST never arrived (e.g. a permission dialog was
-  // approved rather than a prompt submitted). Owned here so the notify module stays pure state.
+  // 10 TOKEN RECEIVED (sticky ack)  >  7 INPUT NEEDED (passive, w/ OK)  >  5 TOKEN NEEDED (passive).
+  // Sticky modals are protected by ui_modal_show's guard; the passive ones share the slot, so we
+  // pick exactly one winner each tick (a later show would otherwise stomp an earlier). Safety net:
+  // clear a stuck alert whose "clear" POST never arrived (e.g. a permission dialog was approved, not
+  // a prompt submitted). Owned here so the notify module stays pure state.
   if (notify_input_age_s() >= NOTIFY_INPUT_TIMEOUT_S) notify_input_clear();
   bool input_waiting = notify_input_active();   // a Claude Code session is waiting (issue #2)
 
-  // Chime once when a session STARTS waiting (rising edge) — same debounced model as the usage FSM.
+  // Chime once when a session STARTS waiting (rising edge) — a bright, deliberately louder alert.
   static bool input_prev = false;
-  if (input_waiting && !input_prev) audio_chime_warn();
+  if (input_waiting && !input_prev) audio_chime_alert();
   input_prev = input_waiting;
 
-  // (1) A fresh token sync shows an OK-to-dismiss confirmation; protected once up.
+  // (1) A fresh token sync shows an OK-to-dismiss confirmation; sticky → stays until tapped.
   if (data_take_token_synced())
     ui_modal_show(NOTI_TOKEN, UI_SEV_OK, 10, LV_SYMBOL_OK " TOKEN RECEIVED",
-                  "New token received.\nUpdating your usage now.", "OK", nullptr, nullptr);
+                  "New token received.\nUpdating your usage now.", "OK", nullptr, nullptr, true);
 
-  // (2) "Input needed" banner — project name in the body; outranks the passive token prompt.
-  if (input_waiting) {
-    const char *proj = notify_input_project();
-    ui_modal_show(NOTI_INPUT, UI_SEV_WARN, 7, LV_SYMBOL_WARNING " INPUT NEEDED",
-                  (proj && proj[0]) ? proj : "A Claude Code session is waiting.",
-                  nullptr, nullptr, nullptr);
-  } else {
+  // (2) "Claude needs your input" banner (brand coral). The green OK button is a manual dismiss
+  // (clears the alert) ON TOP OF the auto-clear from the next prompt; passive (sticky=false) so the
+  // auto-clear still removes it.
+  if (input_waiting)
+    ui_modal_show(NOTI_INPUT, UI_SEV_BRAND, 7, "Claude needs your input",
+                  "Check your terminal", "OK", nullptr, input_modal_dismiss, false);
+  else
     ui_modal_clear(NOTI_INPUT);
-  }
 
   // (3) Passive "run the sync script" prompt — only claims the slot when nothing above holds it.
   if (!input_waiting && data_needs_token())
     ui_modal_show(NOTI_TOKEN, UI_SEV_WARN, 5, "TOKEN NEEDED",
-                  "Run on your computer:\nnode claude_token_sync.js", nullptr, nullptr, nullptr);
+                  "Run on your computer:\nnode claude_token_sync.js", nullptr, nullptr, nullptr, false);
   else if (!input_waiting)
     ui_modal_clear(NOTI_TOKEN);
 
