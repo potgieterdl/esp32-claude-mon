@@ -1,0 +1,4 @@
+# Shell scripts must check out with LF endings so bash (incl. Git Bash on Windows, where
+# core.autocrlf is typically true) runs them without `$'\r': command not found` errors.
+# Matters for .claude/hooks/*.sh (the SessionStart release-drift check) and any future scripts.
+*.sh text eol=lf
