@@ -54,12 +54,13 @@ Action appends an agent-context footer (read CLAUDE.md + run `orient`) to every 
 - **Pick → branch → finish → PR → (you merge).** One issue per change. **A PR means "finished and ready for
   your approval," never work-in-progress** — do the COMPLETE job on the branch *before* `gh pr create`:
   implement, validate (sim / build / on-device), update all docs, run the architect + doc reviews and resolve
-  findings, secrets check. **Never open a PR early and patch it.**
+  findings, **sync with `main`** (pull + resolve conflicts locally), secrets check. **Never open a PR early and patch it.**
   ```powershell
   gh issue list --label "agent: ready"           # what's ready to work
   gh issue view <N>                              # the issue body IS the brief — read it fully
   git switch -c feature/<N>-short-slug           # branch named after the issue
-  # ... implement → test-flash → fix/polish → docs → architect + doc review → secrets check ...
+  # ... implement → test-flash → fix/polish → docs → architect + doc review → sync main → secrets check ...
+  git fetch origin && git merge origin/main      # pull latest main, resolve conflicts + re-validate locally
   gh pr create --base main --title "feat: … (closes #<N>)" --body "Closes #<N>`n`n<what changed>"
   ```
   Use `feature/`, `fix/`, or `chore/` branch prefixes. Put `Closes #<N>` in the **PR body** (auto-closes on
@@ -88,6 +89,12 @@ Action appends an agent-context footer (read CLAUDE.md + run `orient`) to every 
   should-fix / notable nits, no rubber-stamping or restating what's fine. Resolve blockers + should-fix
   before creating the PR; note any deliberately-deferred items in the PR body. Skip only for trivial
   doc/copy/config changes.
+- **Pre-PR sync with `main` (required, right AFTER the reviews).** Once the architect + doc findings are
+  resolved and *before* `gh pr create`, pull the latest `main` into the branch and deal with any conflicts
+  **locally** — `git fetch origin && git merge origin/main` (rebase is fine too) — then **re-build / re-validate**
+  the merged result. This surfaces conflicts on *your* machine, where you can test the integrated diff, instead
+  of discovering them at merge time, and keeps the PR mergeable. Do it *after* the reviews so they critique the
+  real, about-to-merge diff (and re-run a quick build if the merge pulled in overlapping code).
 
 ## Multi-agent (use where it helps)
 Delegate to subagents (the Agent tool) to keep the main context lean and to parallelize — it has paid off here:
