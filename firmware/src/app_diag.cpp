@@ -41,8 +41,9 @@ void diag_begin() {
                 reset_reason_str(esp_reset_reason()), FW_VERSION,
                 (unsigned)(ESP.getFreeHeap() / 1024), ESP.getChipModel());
   i2c_scan();
-  // NOTE: the recurring Arduino-HAL I2C errors print via ets_printf, not esp_log, so they can't be
-  // counted through esp_log_set_vprintf — they remain visible directly in the raw serial stream.
+  // NOTE: Arduino-HAL I2C errors print via ets_printf, not esp_log, so they can't be counted through
+  // esp_log_set_vprintf — they remain visible directly in the raw serial stream. (Since #18 the bus is
+  // quiet at idle; any reappearance there is a regression.)
 }
 
 void diag_loop() {

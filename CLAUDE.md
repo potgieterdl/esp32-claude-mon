@@ -139,7 +139,7 @@ curl.exe -s "http://$ip/"   # verify: page shows "Firmware: <new version>"
 - **One feature per flash.** Integrate + flash a single change; the user verifies on the device before the next.
 - **Keep known-good builds.** After a confirmed-good flash, archive `.pio/build/esp32-c6/firmware.factory.bin`
   → `firmware/releases/<name>.bin` and `git tag` the commit. Rollback = flash that `.bin` at 0x0.
-  Latest good: `fw-v1.8.2-good`.
+  Latest good: `fw-v1.9.4-good`.
 
 ## Config & settings
 **One file: the repo-root `config.json`** (gitignored; `config.example.json` is the template) holds
