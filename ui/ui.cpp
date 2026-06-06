@@ -548,7 +548,8 @@ static ui_action_cb g_modal_cb = nullptr;
 
 static lv_color_t sev_color(ui_severity_t s) {
   switch (s) { case UI_SEV_OK: return C_GREEN; case UI_SEV_WARN: return C_AMBER;
-               case UI_SEV_ERROR: return C_RED; default: return C_BLUE; }
+               case UI_SEV_ERROR: return C_RED; case UI_SEV_BRAND: return C_CORAL;
+               default: return C_BLUE; }
 }
 
 static void modal_btn_cb(lv_event_t *e) {
@@ -576,7 +577,8 @@ static void modal_build() {
   lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
   lv_obj_set_style_radius(card, 14, 0);
   lv_obj_set_style_border_width(card, 0, 0);
-  lv_obj_set_style_pad_all(card, 16, 0);
+  lv_obj_set_style_pad_hor(card, 16, 0);
+  lv_obj_set_style_pad_ver(card, 28, 0);   // extra top/bottom breathing room (taller card)
   lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(card, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -597,7 +599,7 @@ static void modal_build() {
   lv_obj_set_flex_align(g_modal_btnrow, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_pad_column(g_modal_btnrow, 10, 0);
   g_modal_b0 = lv_button_create(g_modal_btnrow);
-  lv_obj_set_style_bg_color(g_modal_b0, C_CORAL, 0);
+  lv_obj_set_style_bg_color(g_modal_b0, C_GREEN, 0);   // primary action — green "OK"
   lv_obj_set_style_pad_hor(g_modal_b0, 20, 0); lv_obj_set_style_pad_ver(g_modal_b0, 8, 0);
   lv_obj_add_event_cb(g_modal_b0, modal_btn_cb, LV_EVENT_CLICKED, (void *)(intptr_t)0);
   g_modal_b0l = mklabel(g_modal_b0, "OK", &lv_font_montserrat_14, C_BG); lv_obj_center(g_modal_b0l);
@@ -614,14 +616,15 @@ static void modal_build() {
 }
 
 void ui_modal_show(int id, ui_severity_t sev, int prio, const char *title, const char *body,
-                   const char *b0, const char *b1, ui_action_cb cb) {
+                   const char *b0, const char *b1, ui_action_cb cb, bool sticky) {
   if (!g_modal) modal_build();
-  // Protect an unacknowledged ack-modal of a different id from a lower-or-equal-prio show.
+  // Protect an un-acknowledged STICKY modal of a different id from a lower-or-equal-prio show.
   if (g_modal_id && g_modal_ack && id != g_modal_id && prio <= g_modal_prio) return;
 
   bool wasHidden = lv_obj_has_flag(g_modal, LV_OBJ_FLAG_HIDDEN);
   g_modal_id = id; g_modal_prio = prio; g_modal_cb = cb;
-  g_modal_ack = (b0 && b0[0]);
+  g_modal_ack = sticky;                       // protection is "sticky", independent of having a button
+  bool has_btn = (b0 && b0[0]) || (b1 && b1[0]);
 
   lv_label_set_text(g_modal_title, title ? title : "");
   lv_obj_set_style_text_color(g_modal_title, sev_color(sev), 0);
@@ -631,8 +634,8 @@ void ui_modal_show(int id, ui_severity_t sev, int prio, const char *title, const
   else             lv_obj_add_flag(g_modal_b0, LV_OBJ_FLAG_HIDDEN);
   if (b1 && b1[0]) { lv_label_set_text(g_modal_b1l, b1); lv_obj_remove_flag(g_modal_b1, LV_OBJ_FLAG_HIDDEN); }
   else             lv_obj_add_flag(g_modal_b1, LV_OBJ_FLAG_HIDDEN);
-  if (g_modal_ack) lv_obj_remove_flag(g_modal_btnrow, LV_OBJ_FLAG_HIDDEN);
-  else             lv_obj_add_flag(g_modal_btnrow, LV_OBJ_FLAG_HIDDEN);
+  if (has_btn) lv_obj_remove_flag(g_modal_btnrow, LV_OBJ_FLAG_HIDDEN);
+  else         lv_obj_add_flag(g_modal_btnrow, LV_OBJ_FLAG_HIDDEN);
 
   lv_obj_remove_flag(g_modal, LV_OBJ_FLAG_HIDDEN);
   if (wasHidden) lv_obj_move_foreground(g_modal);
@@ -640,7 +643,7 @@ void ui_modal_show(int id, ui_severity_t sev, int prio, const char *title, const
 
 void ui_modal_clear(int id) {
   if (!g_modal || g_modal_id != id) return;
-  if (g_modal_ack) return;                  // awaiting a tap — don't yank it out from under the user
+  if (g_modal_ack) return;                  // sticky/awaiting a tap — don't yank it out from under the user
   g_modal_id = 0; g_modal_prio = 0; g_modal_cb = nullptr;
   lv_obj_add_flag(g_modal, LV_OBJ_FLAG_HIDDEN);
 }

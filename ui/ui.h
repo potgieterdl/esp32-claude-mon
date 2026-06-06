@@ -48,17 +48,18 @@ void ui_set_token_info(const char *last_sync, const char *renews);
 // ── Reusable notifications (shown above all screens) ────────────────────────
 // Two primitives cover every popup: a MODAL (dim scrim + centered card, 0/1/2 action buttons) and
 // a transient TOAST. Severity picks the accent color.
-typedef enum { UI_SEV_INFO, UI_SEV_OK, UI_SEV_WARN, UI_SEV_ERROR } ui_severity_t;
+typedef enum { UI_SEV_INFO, UI_SEV_OK, UI_SEV_WARN, UI_SEV_ERROR, UI_SEV_BRAND } ui_severity_t;
 typedef void (*ui_action_cb)(int id, int button);   // button = 0 (b0) or 1 (b1)
 
 // Show/replace the single modal slot. `id` is a caller-owned tag (re-asserting the same id updates
-// in place — safe to call every tick). `prio`: higher wins the slot. A modal with >=1 button is an
-// ACKNOWLEDGE modal — it stays until the user taps (cb fires) and is NOT removed by ui_modal_clear;
-// a button-less modal is PASSIVE — shown while a condition holds, removed by ui_modal_clear(id).
-// b0/b1 may be NULL. An unacknowledged ack-modal is never downgraded by a lower-prio show.
+// in place — safe to call every tick). `prio`: higher wins the slot. `sticky` = true makes it an
+// ACKNOWLEDGE modal: it stays until the user taps a button (cb fires), is NOT removed by
+// ui_modal_clear, and is never downgraded by a lower-prio show. `sticky` = false is PASSIVE: shown
+// while a condition holds and removed by ui_modal_clear(id) — even if it carries a button (the tap is
+// then a manual shortcut that fires cb on top of the auto-clear). b0/b1/cb may be NULL.
 void ui_modal_show(int id, ui_severity_t sev, int prio, const char *title, const char *body,
-                   const char *b0, const char *b1, ui_action_cb cb);
-void ui_modal_clear(int id);                          // remove the modal if it's this id and passive
+                   const char *b0, const char *b1, ui_action_cb cb, bool sticky);
+void ui_modal_clear(int id);                          // remove the modal if it's this id and not sticky
 void ui_toast(ui_severity_t sev, const char *text, uint32_t ms);   // transient (ms=0 -> ~3s)
 
 #ifdef __cplusplus

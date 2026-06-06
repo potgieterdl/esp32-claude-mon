@@ -19,6 +19,8 @@
 
 #define VOICE_VOLUME  35                    // codec output volume (0..100) — "soft"
 #define TONE_AMPLITUDE 7000                 // digital peak (of 32767) — keep low for soft
+#define ALERT_VOLUME   74                   // louder codec volume, just for the "needs input" alert
+#define ALERT_AMPLITUDE 15600               // and a higher digital peak — deliberately hard to miss
 
 // ---- Module state ----
 static I2SClass       s_i2s;
@@ -26,7 +28,7 @@ static es8311_handle_t s_es = nullptr;
 static QueueHandle_t  s_queue = nullptr;
 static volatile bool  s_ready = false;
 
-enum chime_id_t { CHIME_WARN = 1, CHIME_RESET = 2 };
+enum chime_id_t { CHIME_WARN = 1, CHIME_RESET = 2, CHIME_ALERT = 3 };
 
 // Largest note we ever synthesise (ms) -> size the scratch buffer for it.
 #define MAX_NOTE_MS   320
@@ -37,7 +39,7 @@ static int16_t s_tone[MAX_NOTE_SAMP];       // ~10KB scratch, reused per note
 // Synthesise one sine note into s_tone with a short attack + decay ramp so the
 // waveform starts/ends at zero amplitude (avoids the click of a hard edge).
 // Returns the number of samples written.
-static size_t synth_note(float freq, uint16_t ms) {
+static size_t synth_note(float freq, uint16_t ms, int16_t amp) {
   size_t n = (size_t)SAMPLE_RATE * ms / 1000;
   if (n > MAX_NOTE_SAMP) n = MAX_NOTE_SAMP;
 
@@ -48,13 +50,13 @@ static size_t synth_note(float freq, uint16_t ms) {
     float env = 1.0f;
     if (i < ramp)            env = (float)i / ramp;             // attack
     else if (i > n - ramp)   env = (float)(n - i) / ramp;      // decay
-    s_tone[i] = (int16_t)(sinf(w * i) * TONE_AMPLITUDE * env);
+    s_tone[i] = (int16_t)(sinf(w * i) * amp * env);
   }
   return n;
 }
 
-static void play_note(float freq, uint16_t ms) {
-  size_t n = synth_note(freq, ms);
+static void play_note(float freq, uint16_t ms, int16_t amp) {
+  size_t n = synth_note(freq, ms, amp);
   s_i2s.write((uint8_t *)s_tone, n * sizeof(int16_t));   // blocking — but on our task
 }
 
@@ -72,12 +74,22 @@ static void play_chime(chime_id_t id) {
 
   if (id == CHIME_WARN) {
     // soft 2-note rising chime (E5 -> A5)
-    play_note(659.25f, 130);
+    play_note(659.25f, 130, TONE_AMPLITUDE);
     play_silence(40);
-    play_note(880.00f, 170);
+    play_note(880.00f, 170, TONE_AMPLITUDE);
+  } else if (id == CHIME_ALERT) {
+    // "Needs input" (#2): a bright rising triad (A5 -> C#6 -> E6), louder than the soft usage
+    // chimes (codec volume + digital amplitude both bumped) so a waiting session is hard to miss.
+    es8311_voice_volume_set(s_es, ALERT_VOLUME, NULL);
+    play_note(880.00f,  150, ALERT_AMPLITUDE);
+    play_silence(30);
+    play_note(1108.73f, 150, ALERT_AMPLITUDE);
+    play_silence(30);
+    play_note(1318.51f, 240, ALERT_AMPLITUDE);
+    es8311_voice_volume_set(s_es, VOICE_VOLUME, NULL);   // restore the soft default
   } else { // CHIME_RESET
     // gentle single low note (E4)
-    play_note(329.63f, 300);
+    play_note(329.63f, 300, TONE_AMPLITUDE);
   }
 
   play_silence(20);          // let the tail flush before muting
@@ -148,4 +160,5 @@ static void enqueue(chime_id_t id) {
 
 void audio_chime_warn()  { enqueue(CHIME_WARN); }
 void audio_chime_reset() { enqueue(CHIME_RESET); }
+void audio_chime_alert() { enqueue(CHIME_ALERT); }
 bool audio_ready()       { return s_ready; }
