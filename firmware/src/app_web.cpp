@@ -3,6 +3,7 @@
 #include "app_config.h"
 #include "app_settings.h"
 #include "app_data.h"
+#include "app_notify.h"
 #include <ArduinoJson.h>
 #include <ElegantOTA.h>
 
@@ -75,6 +76,30 @@ void web_begin() {
     if (data_has_weekly_opus()) doc["weekly_opus_pct"] = data_weekly_opus_pct();
     String out; serializeJson(doc, out);
     server.send(200, "application/json", out);
+  });
+
+  // "Needs input" alert (issue #2) — a Claude Code hook POSTs here when a session is waiting on
+  // the user, and again to clear it. Auth-protected (same device token). Body is JSON:
+  //   {"event":"needs_input"}   -> raise banner + chime
+  //   {"event":"clear"}         -> lower banner
+  // Any extra fields are ignored. The presenter (app_view) reads notify_input_* each tick.
+  server.on("/notify", HTTP_POST, []() {
+    if (!require_auth()) return;
+    JsonDocument doc;
+    if (deserializeJson(doc, server.arg("plain"))) {
+      server.send(400, "application/json", "{\"error\":\"bad json\"}");
+      return;
+    }
+    const char *event = doc["event"] | "";
+    if (!strcmp(event, "needs_input")) {
+      notify_input_set();
+      server.send(200, "application/json", "{\"ok\":true,\"state\":\"needs_input\"}");
+    } else if (!strcmp(event, "clear")) {
+      notify_input_clear();
+      server.send(200, "application/json", "{\"ok\":true,\"state\":\"clear\"}");
+    } else {
+      server.send(400, "application/json", "{\"error\":\"event must be needs_input or clear\"}");
+    }
   });
 
   // OTA at /update — HTTP basic-auth (user "admin", pass = the device token).

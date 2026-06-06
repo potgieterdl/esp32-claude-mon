@@ -185,19 +185,30 @@ int main(int argc, char **argv) {
   dump_at(outdir, "19_clock_sleeping_b.png");
   ui_set_sleeping(false);
 
-  // Notification pass: the passive "token needed" prompt, the "received ✓" ack modal, and a toast.
+  // Notification pass: the "token needed" prompt, the "input needed" banner (issue #2), a toast, and
+  // the "received ✓" ack modal. (The ack modal renders LAST — it can't be dismissed without a tap,
+  // so the passive previews, incl. the input banner, must come before it.)
   ui_set_online(true, false);
   ui_goto(2);   // clock screen shows behind the dim scrim
   ui_modal_show(1, UI_SEV_WARN, 5, "TOKEN NEEDED",
-                "Run on your computer:\nnode claude_token_sync.js", nullptr, nullptr, nullptr);
+                "Run on your computer:\nnode claude_token_sync.js", nullptr, nullptr, nullptr, false);
   settle(300);
   dump_at(outdir, "14_token_needed.png");
   ui_modal_clear(1);                       // passive -> clears (back to clock)
+
+  // "Needs input" banner (issue #2): the passive modal a Claude Code hook raises while a session
+  // waits on the user. Slot 2 mirrors NOTI_INPUT in app_view; green OK + brand-coral title.
+  ui_modal_show(2, UI_SEV_BRAND, 7, "Claude needs your input",
+                "Check your terminal", "OK", nullptr, nullptr, false);
+  settle(300);
+  dump_at(outdir, "20_input_needed.png");
+  ui_modal_clear(2);                       // passive -> clears
+
   ui_toast(UI_SEV_ERROR, "Usage fetch failed", 3000);
   settle(300);
   dump_at(outdir, "15_toast.png");
   ui_modal_show(1, UI_SEV_OK, 10, LV_SYMBOL_OK " TOKEN RECEIVED",
-                "New token received.\nUpdating your usage now.", "OK", nullptr, nullptr);
+                "New token received.\nUpdating your usage now.", "OK", nullptr, nullptr, true);
   settle(300);
   dump_at(outdir, "16_token_received.png");
 
