@@ -31,7 +31,8 @@ First-time setup prompts on the device, and confirms when the token syncs:
 - **On-device OAuth** — calls Anthropic directly over TLS verified against bundled root CAs, and **refreshes its
   own token** (rotating refresh token persisted to LittleFS) — no server in the middle.
 - **Honest display** — keeps the last reading through brief WiFi blips, blanks to `--` when truly offline
-  (never fake numbers), and the ring **drains to zero** when a usage window resets.
+  (never fake numbers), the ring **drains to zero** when a usage window resets, and the countdown shows
+  **"No current session"** when no 5-hour window is active (instead of a stuck `0:00`).
 - **WiFi** — auto-(re)connects in the background to reach Anthropic; survives drops without nuking the screen.
 - **Smooth UI on a single core** — fluid swipes/animations via **LovyanGFX async-DMA + double buffering at
   80 MHz SPI**, getting the most out of the single-core ESP32-C6.
@@ -41,6 +42,8 @@ First-time setup prompts on the device, and confirms when the token syncs:
 - **Real clock** — NTP + on-board RTC, timezone-aware, with live reset countdowns.
 - **Wireless + USB updates** — flash over WiFi (OTA) or cable.
 - **Desktop simulator** — preview the UI as PNGs with no hardware.
+- **On-device diagnostics** — a serial health line over USB (reset reason, heap, RSSI, WiFi drops, I2C scan)
+  for debugging during development; silent and non-blocking when running headless.
 
 ## Hardware
 **Waveshare ESP32-C6-Touch-LCD-1.69** — ESP32-C6 (RISC-V, WiFi 6 / BLE) · 1.69″ ST7789V2 240×280 IPS ·
