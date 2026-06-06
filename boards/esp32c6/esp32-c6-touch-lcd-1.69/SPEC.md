@@ -34,6 +34,10 @@ ES8311 codec `0x18`. **Audio I²S:** MCLK=19, BCLK=20, LRCK=22, DOUT=23, DIN=21.
   through the GPIO matrix whose ~40 MHz cap is a *MISO-read* constraint, which doesn't apply to a write-only bus.
 - Backlight **active-high on GPIO6**, driven by LEDC PWM (`ledcAttach(6,5000,8)`).
 - Touch is portrait-native (0..239 × 0..279); the app maps it to landscape (x↔y flip).
+- **Read touch INT-gated** (`TP_INT` = GPIO11, FALLING): only touch the I2C bus when the CST816 signals a
+  touch event, then poll until the finger lifts. Blind ~30 Hz polling of the *idle* controller floods the log
+  with `[259] ESP_ERR_INVALID_STATE` (~1/s); INT-gating drops it to zero. See `firmware/src/main.cpp`
+  `touch_read()` / `touch_isr()` (issue #18).
 
 LovyanGFX bus/panel config lives in `firmware/src/main.cpp` (`class LGFX`). Why LovyanGFX + 80 MHz (not
 Arduino_GFX/TFT_eSPI) → [`docs/ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md#render-path).

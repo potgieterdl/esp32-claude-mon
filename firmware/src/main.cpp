@@ -29,6 +29,7 @@
 #define LCD_BL  6
 #define I2C_SDA 8
 #define I2C_SCL 7
+#define TOUCH_INT 11   // CST816 INT (TP_INT); gate I2C reads on it so we don't poll an idle chip (#18)
 
 // LovyanGFX device: ST7789V2 over SPI2 with GDMA (async flush → overlaps render + transfer).
 class LGFX : public lgfx::LGFX_Device {
@@ -56,6 +57,8 @@ static LGFX tft;
 
 TouchDrvCSTXXX touch;
 static bool touchOk = false;
+static volatile bool s_touch_irq = false;   // set by the CST816 INT (GPIO11) on a touch event (#18)
+static void IRAM_ATTR touch_isr() { s_touch_irq = true; }
 
 static uint32_t millis_cb() { return millis(); }
 
@@ -84,6 +87,18 @@ static void disp_flush(lv_display_t *d, const lv_area_t *area, uint8_t *px) {
 static void touch_read(lv_indev_t *indev, lv_indev_data_t *data) {
   LV_UNUSED(indev);
   if (!touchOk) { data->state = LV_INDEV_STATE_RELEASED; return; }
+
+  // #18: only hit the I2C bus when the CST816 INT (GPIO11) reports activity. Polling an idle
+  // controller every cycle returns ~1/s [259] ESP_ERR_INVALID_STATE. The INT wakes a polling
+  // burst; we keep reading each cycle until the finger lifts (getPoint==0), then go quiet again —
+  // so movement + release still register, but an untouched panel does zero bus traffic.
+  // No critical section needed on s_touch_irq: the only edge we could lose is one arriving as we
+  // enter polling mode, which is moot — we then poll every cycle until release. `polling` is
+  // task-only (the ISR never touches it).
+  static bool polling = false;
+  if (s_touch_irq) { s_touch_irq = false; polling = true; }
+  if (!polling) { data->state = LV_INDEV_STATE_RELEASED; return; }
+
   int16_t x[1], y[1];
   uint8_t n = touch.getPoint(x, y, 1);   // native portrait coords (0..239, 0..279)
   if (n > 0) {
@@ -93,6 +108,7 @@ static void touch_read(lv_indev_t *indev, lv_indev_data_t *data) {
     g_last_activity_ms = millis();       // wake the backlight from idle-dim
   } else {
     data->state = LV_INDEV_STATE_RELEASED;
+    polling = false;                     // finger lifted — back to INT-gated idle
   }
 }
 
@@ -117,6 +133,8 @@ void setup() {
 
   touchOk = touch.begin(Wire, CST816_SLAVE_ADDRESS, I2C_SDA, I2C_SCL);
   Serial.println(touchOk ? "[touch] CST816 ok" : "[touch] CST816 init FAILED (display still runs)");
+  pinMode(TOUCH_INT, INPUT_PULLUP);                                       // #18: gate touch reads on the INT line
+  attachInterrupt(digitalPinToInterrupt(TOUCH_INT), touch_isr, FALLING); // CST816 pulses INT low on a touch event
 
   lv_init();
   lv_tick_set_cb(millis_cb);
