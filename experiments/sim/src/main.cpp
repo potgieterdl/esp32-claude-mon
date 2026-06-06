@@ -168,7 +168,9 @@ int main(int argc, char **argv) {
   settle(1100);
   dump_at(outdir, "13_session_resumed.png");
 
-  // Notification pass: the passive "token needed" prompt, the "received ✓" ack modal, and a toast.
+  // Notification pass: the passive "token needed" prompt, the "input needed" banner, a toast, and
+  // the "received ✓" ack modal. (The ack modal is rendered LAST — being an acknowledge modal it
+  // can't be dismissed without a tap, so the passive previews must come before it.)
   ui_set_online(true, false);
   ui_goto(2);   // clock screen shows behind the dim scrim
   ui_modal_show(1, UI_SEV_WARN, 5, "TOKEN NEEDED",
@@ -176,13 +178,22 @@ int main(int argc, char **argv) {
   settle(300);
   dump_at(outdir, "14_token_needed.png");
   ui_modal_clear(1);                       // passive -> clears (back to clock)
+
+  // "Needs input" banner (issue #2): the passive modal a Claude Code hook raises while a session
+  // waits on the user. Slot 2 mirrors NOTI_INPUT in app_view; project name goes in the body.
+  ui_modal_show(2, UI_SEV_WARN, 7, LV_SYMBOL_WARNING " INPUT NEEDED",
+                "esp32-claude-mon", nullptr, nullptr, nullptr);
+  settle(300);
+  dump_at(outdir, "15_input_needed.png");
+  ui_modal_clear(2);                       // passive -> clears
+
   ui_toast(UI_SEV_ERROR, "Usage fetch failed", 3000);
   settle(300);
-  dump_at(outdir, "15_toast.png");
+  dump_at(outdir, "16_toast.png");
   ui_modal_show(1, UI_SEV_OK, 10, LV_SYMBOL_OK " TOKEN RECEIVED",
                 "New token received.\nUpdating your usage now.", "OK", nullptr, nullptr);
   settle(300);
-  dump_at(outdir, "16_token_received.png");
+  dump_at(outdir, "17_token_received.png");
 
   printf("done\n");
   return 0;

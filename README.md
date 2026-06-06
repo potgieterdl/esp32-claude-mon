@@ -39,6 +39,8 @@ First-time setup prompts on the device, and confirms when the token syncs:
 - **One-file config** — WiFi, device token, alert thresholds, timezone, brightness and dim-on-idle all in
   `config.json`; tweak the device's settings live over the LAN, no reflash.
 - **Audio alerts** — soft chimes at usage thresholds (ES8311 codec).
+- **"Needs input" alerts** — a Claude Code hook lights the display (banner + chime) when a session
+  is waiting on your input, and clears it when you reply. [Setup](docs/claude-code-hooks/README.md).
 - **Real clock** — NTP + on-board RTC, timezone-aware, with live reset countdowns.
 - **Wireless + USB updates** — flash over WiFi (OTA) or cable.
 - **Desktop simulator** — preview the UI as PNGs with no hardware.
@@ -121,7 +123,15 @@ The device is reachable by mDNS as **`claude-monitor.local`** (or its DHCP IP).
 | `/` | none | status page — firmware, wifi/ip, uptime, free heap |
 | `/config.json` | `admin`/token | GET/PUT runtime settings (holds wifi + oauth secrets) |
 | `/status` | `admin`/token | GET JSON usage snapshot — plan/valid/stale/needs_token/five_hour/weekly |
+| `/notify` | `admin`/token | POST `{"event":"needs_input"\|"clear"[,"project":"…"]}` — "needs input" alert (`project` optional; see below) |
 | `/update` | `admin`/token | OTA firmware upload (ElegantOTA) |
+
+### "Needs input" alerts (Claude Code hooks)
+Light the display when a Claude Code session is waiting on you — a banner (**⚠ INPUT NEEDED** +
+project) and a soft chime — and clear it when you reply. Driven by Claude Code's `Notification`
+(fires on a permission prompt / ~60 s idle) and `UserPromptSubmit` hooks POSTing to `/notify`.
+Copy-paste hook scripts (bash + PowerShell) and the `settings.json` wiring are in
+[`docs/claude-code-hooks/`](docs/claude-code-hooks/README.md).
 
 ## UI simulator (preview without the device)
 Renders the shared `ui/` module to PNG on the desktop — check layout/data before flashing.

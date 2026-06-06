@@ -7,11 +7,12 @@
 #include "app_audio.h"
 #include "app_config.h"
 #include "app_settings.h"
+#include "app_notify.h"
 
 #define BAT_ADC 0    // battery sense (VBAT/3 via on-board divider)
 #define BAT_EN  15   // drive HIGH to enable the divider
 
-enum { NOTI_TOKEN = 1 };   // notification slot id for the token modal
+enum { NOTI_TOKEN = 1, NOTI_INPUT = 2 };   // notification slot ids (token modal / "input needed" banner)
 
 // Relative-time formatters for the Device-screen token rows.
 static void fmt_ago(char *b, size_t n, uint32_t ep, uint32_t now) {
@@ -55,16 +56,40 @@ void view_tick() {
 
   if (time_valid()) data_set_now(time_now());
 
-  // Token notification (reusable modal): a fresh sync shows an OK-to-dismiss confirmation
-  // (prio 10, outranks the prompt); otherwise a passive "run the sync script" prompt while a
-  // token is needed; else cleared. NOTI_TOKEN is this notification's slot id.
+  // ── Notifications (single modal slot, priority-ordered) ──────────────────────────────────────
+  // 10 TOKEN RECEIVED (ack, one-shot)  >  7 INPUT NEEDED (passive)  >  5 TOKEN NEEDED (passive).
+  // The ack-modal is protected by ui_modal_show's own guard; the two PASSIVE modals share the one
+  // slot, so we pick exactly one winner each tick (a later show would otherwise stomp an earlier).
+  // Safety net: clear a stuck alert whose "clear" POST never arrived (e.g. a permission dialog was
+  // approved rather than a prompt submitted). Owned here so the notify module stays pure state.
+  if (notify_input_age_s() >= NOTIFY_INPUT_TIMEOUT_S) notify_input_clear();
+  bool input_waiting = notify_input_active();   // a Claude Code session is waiting (issue #2)
+
+  // Chime once when a session STARTS waiting (rising edge) — same debounced model as the usage FSM.
+  static bool input_prev = false;
+  if (input_waiting && !input_prev) audio_chime_warn();
+  input_prev = input_waiting;
+
+  // (1) A fresh token sync shows an OK-to-dismiss confirmation; protected once up.
   if (data_take_token_synced())
     ui_modal_show(NOTI_TOKEN, UI_SEV_OK, 10, LV_SYMBOL_OK " TOKEN RECEIVED",
                   "New token received.\nUpdating your usage now.", "OK", nullptr, nullptr);
-  else if (data_needs_token())
+
+  // (2) "Input needed" banner — project name in the body; outranks the passive token prompt.
+  if (input_waiting) {
+    const char *proj = notify_input_project();
+    ui_modal_show(NOTI_INPUT, UI_SEV_WARN, 7, LV_SYMBOL_WARNING " INPUT NEEDED",
+                  (proj && proj[0]) ? proj : "A Claude Code session is waiting.",
+                  nullptr, nullptr, nullptr);
+  } else {
+    ui_modal_clear(NOTI_INPUT);
+  }
+
+  // (3) Passive "run the sync script" prompt — only claims the slot when nothing above holds it.
+  if (!input_waiting && data_needs_token())
     ui_modal_show(NOTI_TOKEN, UI_SEV_WARN, 5, "TOKEN NEEDED",
                   "Run on your computer:\nnode claude_token_sync.js", nullptr, nullptr, nullptr);
-  else
+  else if (!input_waiting)
     ui_modal_clear(NOTI_TOKEN);
 
   // Only show usage figures when we have FRESH data; otherwise blank them so the
