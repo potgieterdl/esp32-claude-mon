@@ -38,6 +38,9 @@
 #ifndef CFG_DIM_BRIGHTNESS
 #define CFG_DIM_BRIGHTNESS 10
 #endif
+#ifndef CFG_SLEEP_AFTER_S
+#define CFG_SLEEP_AFTER_S 300   // 5 min idle+untouched -> Clock "sleep mode" (#6); 0 = never
+#endif
 #define CONFIG_PATH       "/config.json"
 
 static AppSettings g;
@@ -54,6 +57,10 @@ static void clamp_all() {
   if (g.poll_seconds > 3600) g.poll_seconds = 3600;
   if (g.dim_after_s < 3)     g.dim_after_s = 3;
   if (g.dim_after_s > 3600)  g.dim_after_s = 3600;
+  if (g.sleep_after_s != 0) {                          // 0 = sleep mode off; else keep it sane
+    if (g.sleep_after_s < 30)   g.sleep_after_s = 30;
+    if (g.sleep_after_s > 3600) g.sleep_after_s = 3600;
+  }
 }
 
 static void seed_defaults() {
@@ -74,6 +81,7 @@ static void seed_defaults() {
   g.dim_on_idle    = CFG_DIM_ON_IDLE;
   g.dim_after_s    = CFG_DIM_AFTER_S;
   g.dim_brightness = CFG_DIM_BRIGHTNESS;
+  g.sleep_after_s  = CFG_SLEEP_AFTER_S;
   clamp_all();
 }
 
@@ -100,6 +108,7 @@ static void merge(JsonObjectConst o) {
       if (disp["dim_on_idle"].is<bool>())   g.dim_on_idle    = disp["dim_on_idle"].as<bool>();
       if (disp["dim_after_s"].is<int>())    g.dim_after_s    = disp["dim_after_s"].as<int>();
       if (disp["dim_brightness"].is<int>()) g.dim_brightness = disp["dim_brightness"].as<int>();
+      if (disp["sleep_after_s"].is<int>())  g.sleep_after_s  = disp["sleep_after_s"].as<int>();
     }
   }
   // OAuth token blob (top-level "oauth", snake_case) — written by claude_token_sync.js (PUT) and
@@ -133,6 +142,7 @@ static void build_json(JsonDocument &doc) {
   disp["dim_on_idle"]    = g.dim_on_idle;
   disp["dim_after_s"]    = g.dim_after_s;
   disp["dim_brightness"] = g.dim_brightness;
+  disp["sleep_after_s"]  = g.sleep_after_s;
   JsonObject oa = doc["oauth"].to<JsonObject>();
   oa["access_token"]    = g.oauth_access;
   oa["refresh_token"]   = g.oauth_refresh;

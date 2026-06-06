@@ -168,6 +168,23 @@ int main(int argc, char **argv) {
   settle(1100);
   dump_at(outdir, "13_session_resumed.png");
 
+  // Sleep-mode pass (#6): with no active 5h window the Session ring blanks to "--"; after the idle
+  // delay the device drifts to the Clock screen where a small Claude bot dozes with drifting Zzz.
+  ui_set_online(true, false);
+  ui_set_session_idle(0);
+  ui_set_clock("02:14", "THU 5 JUN");
+  ui_set_clock_reset("");                          // no active session -> next-reset hidden (sleep look)
+  ui_goto(0);
+  settle(3500);                                    // let the 3s reset-drain finish so the ring settles
+  dump_at(outdir, "17_session_idle_dash.png");     // ring now reads "--" (was "0%")
+  ui_goto(2);
+  ui_set_sleeping(true);
+  settle(500);
+  dump_at(outdir, "18_clock_sleeping.png");
+  settle(1000);                                    // a later phase of the Zzz drift
+  dump_at(outdir, "19_clock_sleeping_b.png");
+  ui_set_sleeping(false);
+
   // Notification pass: the passive "token needed" prompt, the "received ✓" ack modal, and a toast.
   ui_set_online(true, false);
   ui_goto(2);   // clock screen shows behind the dim scrim

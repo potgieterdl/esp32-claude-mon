@@ -31,8 +31,13 @@ First-time setup prompts on the device, and confirms when the token syncs:
 - **On-device OAuth** — calls Anthropic directly over TLS verified against bundled root CAs, and **refreshes its
   own token** (rotating refresh token persisted to LittleFS) — no server in the middle.
 - **Honest display** — keeps the last reading through brief WiFi blips, blanks to `--` when truly offline
-  (never fake numbers), the ring **drains to zero** when a usage window resets, and the countdown shows
-  **"No current session"** when no 5-hour window is active (instead of a stuck `0:00`).
+  (never fake numbers), the ring **drains to zero** when a usage window resets, and when no 5-hour window
+  is active the countdown shows **"No current session"** and the ring blanks to `--` (instead of a stuck
+  `0:00` / a misleading `0%`).
+- **Idle sleep mode** — when no 5-hour window is active and you haven't touched the screen for a while,
+  the display gently drifts to the Clock with a small **sleeping Claude bot** (drifting "Zzz"); a fresh
+  session wakes it straight back to Session, and a touch nudges it awake. Timeout is configurable
+  (`display.sleep_after_s`; `0` = never sleep).
 - **WiFi** — auto-(re)connects in the background to reach Anthropic; survives drops without nuking the screen.
 - **Smooth UI on a single core** — fluid swipes/animations via **LovyanGFX async-DMA + double buffering at
   80 MHz SPI**, getting the most out of the single-core ESP32-C6.
@@ -106,11 +111,12 @@ defaults baked in from your root `config.json`'s `device` section.) Auth: basic 
 ```bash
 curl -u admin:$TOKEN http://claude-monitor.local/config.json                 # read current settings (mDNS)
 curl -u admin:$TOKEN -X PUT -H "Content-Type: application/json" \
-     -d '{"display":{"brightness":30,"dim_on_idle":true,"dim_after_s":60}}' \
+     -d '{"display":{"brightness":30,"dim_on_idle":true,"dim_after_s":60,"sleep_after_s":300}}' \
      http://claude-monitor.local/config.json                                 # merge + persist
 ```
 Configurable: **WiFi**, **poll_seconds**, alert **thresholds** (warn/max %), **timezone** (POSIX TZ),
-and **display** (brightness, dim-on-idle + timeout). Brightness applies live; others on next use.
+and **display** (brightness, dim-on-idle + timeout, **idle-sleep timeout** `sleep_after_s`; `0` = never
+sleep). Brightness applies live; others on next use.
 A bad value is clamped; a malformed body returns `400` and never overwrites the file. (The `oauth` block
 also lives here but is managed by the device + sync script, not hand-edited.)
 

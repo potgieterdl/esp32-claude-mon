@@ -30,6 +30,7 @@ struct AppSettings {
   bool     dim_on_idle;      // auto-dim the backlight when there's been no touch
   uint16_t dim_after_s;      // idle seconds before dimming
   uint8_t  dim_brightness;   // 0..100 dimmed level (used only when dim_on_idle)
+  uint16_t sleep_after_s;    // idle+untouched seconds before the Clock "sleep mode" (#6); 0 = never
 };
 
 void          settings_begin();        // mount LittleFS, load config.json (seed from defaults if absent)
