@@ -49,18 +49,35 @@ the Anthropic usage API** over CA-pinned HTTPS, with the OAuth token refreshed o
 `todo.md` is retired. Feature requests are filed via the issue forms in `.github/ISSUE_TEMPLATE/`; a GitHub
 Action appends an agent-context footer (read CLAUDE.md + run `orient`) to every new issue.
 - **Labels:** `type:` feature/bug/chore · `area:` ui/firmware/data/build/docs · `priority: high` · `status:`
-  blocked/in-progress · **`agent: ready`** (scoped, ready to implement) · `epic` (multi-phase, checklist).
+  blocked/in-progress · **`agent: ready`** (scoped, ready to implement) · `epic` (one multi-phase feature → one issue + one PR).
   Release versions are tracked with **milestones** (`fw-vX.Y.Z`).
-- **Pick → branch → PR → close.** One issue per change; the PR auto-closes it on merge to `main`:
+- **Pick → branch → finish → PR → (you merge).** One issue per change. **A PR means "finished and ready for
+  your approval," never work-in-progress** — do the COMPLETE job on the branch *before* `gh pr create`:
+  implement, validate (sim / build / on-device), update all docs, run the architect + doc reviews and resolve
+  findings, secrets check. **Never open a PR early and patch it.**
   ```powershell
   gh issue list --label "agent: ready"           # what's ready to work
   gh issue view <N>                              # the issue body IS the brief — read it fully
   git switch -c feature/<N>-short-slug           # branch named after the issue
-  # ... implement, validate in the sim, bump FW_VERSION, then the pre-PR review (below) ...
+  # ... implement → test-flash → fix/polish → docs → architect + doc review → secrets check ...
   gh pr create --base main --title "feat: … (closes #<N>)" --body "Closes #<N>`n`n<what changed>"
   ```
   Use `feature/`, `fix/`, or `chore/` branch prefixes. Put `Closes #<N>` in the **PR body** (auto-closes on
   merge to the default branch). Reference other issues without closing as plain `#<N>`.
+- **You review and merge every PR manually — the agent never runs `gh pr merge`** unless you say so in that
+  moment. After your merge: `--delete-branch` + prune local merged branches.
+- **Working-tree safety (another agent or you may have a different branch checked out in this same folder).**
+  - **Before every commit:** check `git branch --show-current` + `git status` — never assume you're on your
+    own branch (a commit can silently land on someone else's WIP).
+  - **To change `main` while another branch is checked out, use a throwaway `git worktree`** (`git worktree
+    add -b <branch> <path> origin/main` → commit/push/PR → `git worktree remove`), *not* `git switch` — which
+    carries or clobbers their WIP.
+  - **Stage explicit paths** (`git add <file>…`), never `git add -A`.
+- **Epics = one issue and one PR — never sub-issues, never a drip of small PRs.** An epic is a *single
+  cohesive feature*; its body carries a **`## Todo`** section — a markdown `[ ]` checklist of subtasks (the
+  work breakdown, sibling to acceptance criteria). Build the whole feature on **one** branch (multiple commits
+  and *test* flashes are fine; nothing merges mid-stream); tick boxes as subtasks land; when the feature is
+  complete + validated, open **one** PR that `Closes #<N>`. How to execute one → *Working an epic* below.
 - **Pre-PR architectural review (required before opening a code PR).** Before `gh pr create`, spawn an
   **independent subagent** (the Agent tool) to review the diff against `main`. Brief it to weigh **SOLID**,
   **DRY**, and general best practices alongside this project's conventions (portable `ui/` boundary,
@@ -75,6 +92,17 @@ Delegate to subagents (the Agent tool) to keep the main context lean and to para
 - **Parallel feature dev:** one agent per independent module; integrate serially (single device → flashing is serialized).
 - **`claude-code-guide`** agent for Claude Code questions (hooks, settings, SDK, memory/rules).
 - Reserve direct work for single-file edits / quick lookups; delegate broad, file-spanning investigations.
+
+**Working an epic** (one issue, one `## Todo`, one PR at the end):
+1. **Build context + validate the `## Todo`.** It may be stale or from another session — run `orient`, re-read
+   the issue, and confirm the breakdown is still correct (update it if not) *before* implementing.
+2. **Coordinator + workers.** The top agent stays a **coordinator** and keeps its context lean — it does *not*
+   implement. For each Todo item it spawns an **implementation subagent** with the context that item needs.
+   **Parallelize independent items**; serialize dependent ones (on-device flashing is always serial).
+3. **Per-subtask gates.** Before an item is ticked, run the **architect review** *and* the **doc reviewer** on
+   it, so each piece is well-built and consistent across the codebase before moving on.
+4. **Tick the box, integrate, next.** When every box is done and the feature is validated end-to-end, open the
+   single PR (`Closes #<N>`) for the maintainer to merge.
 
 ## Build & flash (PlatformIO, project in `firmware/`)
 ```powershell
