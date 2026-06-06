@@ -10,5 +10,18 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:www.cnx-software.com)"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-release-state.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
   }
 }

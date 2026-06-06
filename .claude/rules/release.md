@@ -23,3 +23,9 @@ just the flash — so the docs never drift:
 > is the frozen pre-publish archive — **never** push `master` or its old `v*`/`fw-v*` tags.
 
 Net effect: **GitHub Issues** = only what's left · `README` = what's delivered · `adr/` = why · `firmware/releases/` = how to roll back.
+
+> **Safety net:** this checklist is deferred to *after* device-confirm, so it spans sessions and is easy to
+> miss. A `SessionStart` hook runs [`.claude/hooks/check-release-state.sh`](../hooks/check-release-state.sh)
+> each session and flags drift (`FW_VERSION` with no releases row / stale "Latest good" / missing tag, or a
+> `firmware/src/*.cpp` absent from `docs/ARCHITECTURE.md`). Run it manually anytime: `bash
+> .claude/hooks/check-release-state.sh`.
