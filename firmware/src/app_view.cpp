@@ -100,14 +100,16 @@ void view_tick(uint32_t input_idle_ms) {
   if (data_valid() && !data_stale()) {
     int  fh_pct = data_five_hour_pct();
     long fh_secs = data_five_hour_secs_left();
-    bool fh_active = fh_secs > 0;                  // a live window counting down
-    // Idle = the window has *elapsed* (secs_left == 0, not -1) AND usage drained to 0 → genuinely no
-    // active window. Keying off == 0 (not !active) avoids mislabeling the secs_left == -1 "no clock
-    // yet" case as "No current session".
-    bool fh_idle = (fh_secs == 0 && fh_pct == 0);
-    char at[24] = "", next[24] = "";
     uint32_t r = data_five_hour_resets_at();
-    if (fh_active && time_valid() && r) {          // only show a reset time for a live window
+    // Active vs idle keys off resets_at — the API's authoritative "is there a 5-hour window?" signal.
+    // A fully-expired/inactive window comes back with NO resets_at (→ 0), so secs_left is -1 (not 0);
+    // keying idle off resets_at==0 catches that real idle state AND stays clock-independent: a window
+    // with no clock yet still has resets_at>0, so it's correctly "active, countdown unknown" (ring %
+    // + "--:--"), not mislabeled "No current session".
+    bool fh_active = (r > 0);                       // a live 5-hour window exists
+    bool fh_idle   = (r == 0);                      // no active window → "No current session" + ring "--"
+    char at[24] = "", next[24] = "";
+    if (fh_active && time_valid()) {               // only show a reset time for a live window
       char hm[12]; time_fmt_hm(r, hm, sizeof hm);
       snprintf(at,   sizeof at,   "at %s", hm);
       snprintf(next, sizeof next, "next reset %s", hm);
@@ -152,8 +154,8 @@ void view_tick(uint32_t input_idle_ms) {
   // drift back to the Clock and a small bot dozes. A touch nudges the bot awake (staying put); fresh
   // activity wakes it straight to Session. sleep_after_s == 0 disables the whole behaviour.
   bool fresh  = data_valid() && !data_stale();
-  bool active = fresh && data_five_hour_secs_left() > 0;                                  // live window
-  bool idle   = fresh && data_five_hour_secs_left() == 0 && data_five_hour_pct() == 0;    // fully expired
+  bool active = fresh && data_five_hour_resets_at() > 0;   // a live 5-hour window exists
+  bool idle   = fresh && data_five_hour_resets_at() == 0;  // no active window (API returned no resets_at)
   uint32_t sleep_after = (uint32_t)settings().sleep_after_s * 1000;
 
   static bool     was_active = false;   // last *definite* activity reading (held across stale blips)
@@ -171,9 +173,10 @@ void view_tick(uint32_t input_idle_ms) {
     ui_goto_anim(2);
     ui_set_sleeping(true); asleep = true;
   }
-  // Latch only on a *definite* classification (active or fully-idle). The transient secs_left == -1
-  // reading (null five_hour / time-sync drop) and stale/offline blips leave was_active untouched, so
-  // they can't re-fire the wake and yank the user off the screen they're on.
+  // Latch only on a *definite* reading (fresh → active and idle are complementary). Stale/offline
+  // blips leave was_active untouched, so a brief data gap can't re-fire the wake and yank the user off
+  // the screen they're on. resets_at (not secs_left) drives `active`, so a clock-sync drop — which only
+  // nulls the countdown, never the window — can't flip active and spuriously re-reveal.
   if (active || idle) was_active = active;
 
   // Device screen
