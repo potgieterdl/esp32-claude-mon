@@ -8,7 +8,7 @@ docs; link here instead.** App structure & render path → [`docs/ARCHITECTURE.m
 ## At a glance
 - **MCU:** ESP32-C6 — single-core 32-bit RISC-V @ 160 MHz, Wi-Fi 6, BLE 5, 802.15.4. **No PSRAM.**
 - **Flash:** 8 MB. **Display:** 1.69″ IPS 240×280, driver **ST7789V2** (SPI). **Touch:** **CST816T** (I²C).
-- **Other:** QMI8658 6-axis IMU · PCF85063 RTC · ES8311 audio codec + NS4150B amp + mic.
+- **Other:** QMI8658 6-axis IMU (**used** for shake-to-summon, #31) · PCF85063 RTC · ES8311 audio codec + NS4150B amp + mic.
 - **Power:** USB-C; ETA6098 Li-charger; battery voltage via ADC (gated by BAT_EN).
 - **USB:** native USB-Serial/JTAG (no UART bridge). Enumerates as `VID 303A : PID 1001`.
 - **Device-adapter contract implemented:** display ✅ · touch ✅ · backlight ✅ · battery ✅ · audio ✅ · RTC ✅.
@@ -49,6 +49,9 @@ Arduino_GFX/TFT_eSPI) → [`docs/ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md
 - **HWCDC serial is unreliable on the C6** — `Serial.print` often shows nothing. Confirm "is it alive?" via
   the **screen/backlight**, never serial.
 - Download/bootloader mode (if a normal flash won't connect): hold **BOOT**, tap **RESET**, release BOOT.
+- **QMI8658 IMU INT pins are NOT broken out** (only the touch INT is) → the firmware **polls** the
+  accelerometer (~50 Hz) for shake detection; the chip's hardware motion-interrupt engine is unavailable.
+  See `firmware/src/app_imu.cpp` (issue #31).
 
 ## Build / toolchain
 - Platform: **pioarduino fork** pinned `55.03.38-1` (official `platformio/espressif32` lagged on C6) →

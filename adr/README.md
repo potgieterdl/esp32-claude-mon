@@ -45,3 +45,4 @@ The trade-offs we accept (+ good / − bad), and anything that must NOT be undon
 - [ADR 0004 — Registry dependencies + per-device `boards/` scaffold](0004-registry-deps-and-boards.md)
 - [ADR 0005 — Validate the UI in the simulator, not via on-device screenshots](0005-simulator-over-device-screenshot.md)
 - [ADR 0006 — Device calls Anthropic usage API directly (on-device OAuth)](0006-device-direct-oauth.md) *(supersedes 0001)*
+- [ADR 0007 — Claude-bot rendering: transform-free, opaque stage, larger LVGL pool](0007-bot-render-constraints.md)

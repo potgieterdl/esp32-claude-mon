@@ -53,7 +53,11 @@
 
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN
     /*Size of the memory available for `lv_malloc()` in bytes (>= 2kB)*/
-    #define LV_MEM_SIZE (64 * 1024U)          /*[bytes]*/
+    #define LV_MEM_SIZE (96 * 1024U)          /*[bytes]*/  /* +32K vs the original 64K. The #31 easter-egg
+        bot (its ~23 shapes drawn together with the live screen still rendering behind it) OOMs this pool at
+        64K — VERIFIED in the simulator. LVGL is built to HALT on a failed alloc (LV_ASSERT_HANDLER while(1)),
+        so this headroom is what stops a device hang. NB: this is LVGL's OWN pool, separate from the ESP heap
+        that WiFi/TLS use, so the bump doesn't starve the network path. See ADR-0007. */
 
     /*Size of the memory expand for `lv_malloc()` in bytes*/
     #define LV_MEM_POOL_EXPAND_SIZE 0

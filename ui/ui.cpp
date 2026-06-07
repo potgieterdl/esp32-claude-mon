@@ -12,6 +12,11 @@
 #define C_RED   lv_color_hex(0xE5484D)
 #define C_TRACK lv_color_hex(0x2A2620)
 #define C_BLUE  lv_color_hex(0x3DA5FF)  // "online, awaiting usage-API data" — distinct from red
+// Claude-bot (#6 sleeper + #31 easter egg) palette — a warm coral/cream take on the chunky robot.
+#define C_CORAL_DK lv_color_hex(0xBA5230)  // darker coral: outlines, neck/hips, depth shadow
+#define C_CORAL_HI lv_color_hex(0xF58457)  // lighter coral: helmet dome crown
+#define C_EYE      lv_color_hex(0x171411)  // warm near-black: visor + chest grille
+#define C_SHINE    lv_color_hex(0xFFFDF8)  // bright warm-white: glass-dome shine + chest light
 
 // live-data handles (F4) — captured in build_*; updated by ui_set_*.
 static lv_obj_t *g_sess_ring = nullptr, *g_sess_pct = nullptr, *g_sess_wk_bar = nullptr, *g_sess_at = nullptr;
@@ -202,15 +207,17 @@ static void build_weekly(lv_obj_t *t) {
 }
 
 // ── Sleeping companion (#6) ─────────────────────────────────
-// A small coral Claude bot dozing in the Clock screen's bottom-left corner with three "Z"s that
-// drift up-right and fade, looped. The whole group lives under g_sleep_grp (hidden until idle).
-// Built from shapes/labels only (portable; no image decoder). Only the Zzz move; the bot is static.
+// The full Claude bot — the SAME character as the #31 easter egg, drawn small by bot_draw — dozing in
+// the Clock screen's bottom-left corner with three "Z"s that drift up-right and fade, looped. The
+// whole group lives under g_sleep_grp (hidden until idle). Only the Zzz move; the bot itself is static.
 static lv_obj_t *g_sleep_grp = nullptr;             // bottom-left container on the Clock tile
 static lv_obj_t *g_zzz[3]    = {nullptr, nullptr, nullptr};
 static int32_t   g_zzz_phase = 0;                   // lv_anim identity token (value unused)
 static bool      g_sleeping  = false;
-static const int Z_BX[3] = {40, 52, 64};            // base x (container-rel), small → large
-static const int Z_BY[3] = {56, 40, 24};            // base y (container-rel), lower → higher
+static const int Z_BX[3] = {58, 70, 80};            // base x (group-rel), small → large; above his head
+static const int Z_BY[3] = {44, 30, 16};            // base y (group-rel), lower → higher
+static void bot_draw(lv_obj_t *p, int sc, bool asleep,    // full-body Claude bot (defined with #31 below)
+                     lv_obj_t **eye, lv_obj_t **chest);
 
 // One animation drives all three Z's by a shared 0..1000 phase; each is staggered a third of a
 // cycle so there's always a Z rising. Per Z: rise + slight right drift, opacity fades in then out.
@@ -240,36 +247,14 @@ static void build_clock(lv_obj_t *t) {
 
   // Sleeping companion — bottom-left so it clears the centred time/date; hidden until ui_set_sleeping.
   g_sleep_grp = lv_obj_create(t); plain(g_sleep_grp);
-  lv_obj_set_size(g_sleep_grp, 100, 86);
-  lv_obj_align(g_sleep_grp, LV_ALIGN_BOTTOM_LEFT, 8, -16);
+  lv_obj_set_size(g_sleep_grp, 104, 160);
+  lv_obj_align(g_sleep_grp, LV_ALIGN_BOTTOM_LEFT, 6, -2);
   lv_obj_add_flag(g_sleep_grp, LV_OBJ_FLAG_HIDDEN);
 
-  lv_obj_t *head = lv_obj_create(g_sleep_grp);
-  lv_obj_set_size(head, 36, 30);
-  lv_obj_align(head, LV_ALIGN_BOTTOM_LEFT, 6, -6);
-  lv_obj_set_style_bg_color(head, C_CORAL, 0);
-  lv_obj_set_style_bg_opa(head, LV_OPA_COVER, 0);
-  lv_obj_set_style_radius(head, 9, 0);
-  lv_obj_set_style_border_width(head, 0, 0);
-  lv_obj_remove_flag(head, LV_OBJ_FLAG_SCROLLABLE);
-  for (int i = 0; i < 2; i++) {                       // two closed, sleepy eyes (dark dashes)
-    lv_obj_t *eye = lv_obj_create(head);
-    lv_obj_set_size(eye, 8, 3);
-    lv_obj_set_style_radius(eye, 1, 0);
-    lv_obj_set_style_bg_color(eye, C_BG, 0);
-    lv_obj_set_style_bg_opa(eye, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(eye, 0, 0);
-    lv_obj_remove_flag(eye, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(eye, LV_ALIGN_CENTER, i == 0 ? -7 : 7, -3);
-  }
-  lv_obj_t *mouth = lv_obj_create(head);             // tiny open "o" snore mouth
-  lv_obj_set_size(mouth, 6, 6);
-  lv_obj_set_style_radius(mouth, 3, 0);
-  lv_obj_set_style_bg_color(mouth, C_BG, 0);
-  lv_obj_set_style_bg_opa(mouth, LV_OPA_COVER, 0);
-  lv_obj_set_style_border_width(mouth, 0, 0);
-  lv_obj_remove_flag(mouth, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_align(mouth, LV_ALIGN_CENTER, 0, 8);
+  lv_obj_t *sb = lv_obj_create(g_sleep_grp); plain(sb);   // the bot, anchored to the bottom of the group
+  lv_obj_set_size(sb, 96, 132);
+  lv_obj_align(sb, LV_ALIGN_BOTTOM_MID, 0, 0);
+  bot_draw(sb, 58, true, nullptr, nullptr);               // same character, drawn small + asleep
 
   const lv_font_t *zf[3] = {&lv_font_montserrat_12, &lv_font_montserrat_14, &lv_font_montserrat_16};
   for (int i = 0; i < 3; i++) {                       // the drifting Zzz (positioned by zzz_exec)
@@ -499,6 +484,267 @@ void ui_set_sleeping(bool sleeping) {
     lv_obj_add_flag(g_sleep_grp, LV_OBJ_FLAG_HIDDEN);
   }
 }
+
+// ── Claude bot — shared full-body character (#6 sleeper + #31 easter egg) ────
+// A chunky, friendly robot: rounded coral head with a glass-dome crown + dark visor and two bright
+// cream eyes, a stubby torso with a lit chest grille, amber joints/feet, little arms and legs — all
+// from rounded-rect/circle primitives (portable; no image decoder, no PSRAM). bot_draw() lays the
+// whole guy into a parent, scaled by `sc` percent, so the SAME character is the big centred
+// easter-egg bot AND the small corner sleeper. `asleep` swaps the open eyes for closed dashes and
+// dims the chest light.
+//
+// Easter-egg bot (#31) draws on an OPAQUE full-screen stage parented to the active screen (NOT
+// lv_layer_top), so the covered tileview isn't re-rendered. Every animation is TRANSFORM-FREE — body
+// moves by translate, eyes animate by HEIGHT (re-centred), parts fade by opacity. (LVGL's software
+// transform-SCALE path infinite-loops here in partial-render mode, so no scale anywhere; see ADR-0007.)
+// Built on show / destroyed on hide → zero LVGL-pool footprint while away.
+static lv_obj_t *g_bot = nullptr;          // opaque full-screen stage (also catches swipe/tap to dismiss)
+static lv_obj_t *g_bot_body  = nullptr;    // centred group — the whole bot, moved as one via translate
+static lv_obj_t *g_bot_eye[2] = {nullptr, nullptr};
+static lv_obj_t *g_bot_chest = nullptr;    // chest light (soft "alive" pulse; flashes the beep on arrival)
+static int32_t   g_bot_eye_phase = 0;      // identity token: one anim drives BOTH eyes (open/blink)
+static bool      g_bot_shown = false;      // true only in the interactive phase (false during exit teardown)
+static void (*g_bot_dismiss_cb)(void) = nullptr;
+
+#define BOT_W      200          // body container (transparent; size is free — translate makes no layer)
+#define BOT_H      220
+#define BOT_RISE   104          // entrance: body starts this many px low, then springs up to centre
+#define EYE_OPEN   256          // eye "openness" phase: 256 = fully open
+#define EYE_SHUT   28           // openness when blinking → a thin dark dash
+#define EYE_DX     17           // eye centre offset from the bot midline (±) — close-set = alert
+#define EYE_DY     (-46)        // eye centre offset (negative = up, on the visor)
+#define EYE_H_MAX  32           // eye height (px) fully open (tall pills read focused)
+#define EYE_H_MIN  5            // eye height (px) shut
+
+// one styled, non-interactive shape (rounded rect / circle) aligned to its parent's center
+static lv_obj_t *botshape(lv_obj_t *p, int dx, int dy, int w, int h, lv_color_t col, int r) {
+  lv_obj_t *o = lv_obj_create(p);
+  lv_obj_set_size(o, w, h);
+  lv_obj_align(o, LV_ALIGN_CENTER, dx, dy);
+  lv_obj_set_style_bg_color(o, col, 0);
+  lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
+  lv_obj_set_style_radius(o, r, 0);
+  lv_obj_set_style_border_width(o, 0, 0);
+  lv_obj_set_style_pad_all(o, 0, 0);
+  lv_obj_remove_flag(o, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_remove_flag(o, LV_OBJ_FLAG_CLICKABLE);   // only the stage is interactive
+  return o;
+}
+
+// Draw the whole bot into `p`, scaled by `sc` percent; capture the animated parts (pass NULL to skip).
+// Shapes are added back-to-front (feet → … → eyes). asleep = closed-dash eyes + a dimmed chest.
+static void bot_draw(lv_obj_t *p, int sc, bool asleep, lv_obj_t **eye, lv_obj_t **chest) {
+  auto S = [sc](int v) -> int { int r = v * sc / 100; return (r == 0 && v != 0) ? (v < 0 ? -1 : 1) : r; };
+  for (int i = 0; i < 2; i++) {                                          // legs + amber feet
+    botshape(p, S(i ? 18 : -18), S(95), S(26), S(12), C_AMBER, S(6));
+    botshape(p, S(i ? 16 : -16), S(84), S(18), S(20), C_CORAL, S(7));
+  }
+  botshape(p, 0, S(74), S(46), S(12), C_CORAL_DK, S(4));                 // hips
+  for (int i = 0; i < 2; i++) {                                          // arms + coral mitts, tucked in/down
+    botshape(p, S(i ? 50 : -50), S(64), S(18), S(16), C_CORAL, S(8));    //   hand (coral, like the reference)
+    botshape(p, S(i ? 48 : -48), S(40), S(16), S(40), C_CORAL, S(8));    //   arm
+  }
+  botshape(p, 0, S(38), S(80), S(66), C_CORAL, S(18));                   // torso
+  for (int i = 0; i < 2; i++)
+    botshape(p, S(i ? 42 : -42), S(26), S(16), S(16), C_AMBER, S(8));    // amber shoulder joints (on the torso)
+  botshape(p, 0, S(44), S(48), S(18), C_EYE, S(6));                      // chest grille
+  lv_obj_t *cl = botshape(p, 0, S(44), S(26), S(6), C_SHINE, S(2));      // chest light (also reads as a mouth)
+  if (asleep) lv_obj_set_style_bg_opa(cl, LV_OPA_30, 0);
+  if (chest) *chest = cl;
+  botshape(p, S(16), S(30), S(7), S(7), C_AMBER, S(4));                  // little amber status LED (it's a monitor!)
+  botshape(p, 0, S(3), S(34), S(12), C_CORAL_DK, S(4));                  // neck
+  botshape(p, 0, S(-50), S(116), S(100), C_CORAL, S(32));               // head
+  for (int i = 0; i < 2; i++) {                                          // ear-knobs — the reference's signature nubs
+    botshape(p, S(i ? 60 : -60), S(-50), S(14), S(26), C_CORAL, S(6));
+    botshape(p, S(i ? 60 : -60), S(-50), S(7),  S(7),  C_AMBER, S(4));   //   amber bolt
+  }
+  botshape(p, 0, S(-74), S(92), S(44), C_CORAL_HI, S(22));             // glass-dome crown
+  lv_obj_t *shine = botshape(p, S(-26), S(-78), S(22), S(12), C_SHINE, S(6));  // dome reflection (glass glare)
+  lv_obj_set_style_bg_opa(shine, LV_OPA_60, 0);
+  botshape(p, 0, S(-48), S(78), S(46), C_EYE, S(18));                   // visor (inset → thicker coral frame, cuter)
+  for (int i = 0; i < 2; i++) {                                         // eyes (open) / drooped dashes (asleep)
+    lv_obj_t *e = asleep
+      ? botshape(p, S(i ? EYE_DX : -EYE_DX), S(EYE_DY + 2), S(20), S(3),          C_INK, S(2))
+      : botshape(p, S(i ? EYE_DX : -EYE_DX), S(EYE_DY),     S(20), S(EYE_H_MAX), C_INK, S(8));
+    if (eye) eye[i] = e;
+  }
+  // (no catchlights — the bright plain cream eyes read best, and match the reference)
+}
+
+// exec callbacks — one stable fn per animated property so teardown can target each precisely
+static void bot_bodyy_exec (void *o, int32_t v) { lv_obj_set_style_translate_y((lv_obj_t *)o, v, 0); }
+static void bot_bodyx_exec (void *o, int32_t v) { lv_obj_set_style_translate_x((lv_obj_t *)o, v, 0); }
+static void bot_scrim_exec (void *o, int32_t v) { lv_obj_set_style_bg_opa((lv_obj_t *)o, (lv_opa_t)v, 0); }
+static void bot_chest_exec (void *o, int32_t v) { lv_obj_set_style_opa((lv_obj_t *)o, (lv_opa_t)v, 0); }
+static void bot_eyes_exec  (void *, int32_t v) {            // height-blink BOTH eyes (glints clip with them)
+  if (v < 0) v = 0; if (v > 256) v = 256;
+  int h = EYE_H_MIN + (EYE_H_MAX - EYE_H_MIN) * v / 256;
+  for (int i = 0; i < 2; i++) if (g_bot_eye[i]) {
+    lv_obj_set_height(g_bot_eye[i], h);
+    lv_obj_align(g_bot_eye[i], LV_ALIGN_CENTER, i ? EYE_DX : -EYE_DX, EYE_DY);
+  }
+}
+
+// small one-shot anim helper (looping anims are spelled out so their extra knobs read clearly)
+static void bot_anim(void *var, lv_anim_exec_xcb_t exec, int32_t from, int32_t to,
+                     uint32_t dur, lv_anim_path_cb_t path, uint32_t delay, lv_anim_completed_cb_t done) {
+  lv_anim_t a; lv_anim_init(&a);
+  lv_anim_set_var(&a, var);
+  lv_anim_set_exec_cb(&a, exec);
+  lv_anim_set_values(&a, from, to);
+  lv_anim_set_duration(&a, dur);
+  lv_anim_set_path_cb(&a, path);
+  if (delay) lv_anim_set_delay(&a, delay);
+  if (done)  lv_anim_set_completed_cb(&a, done);
+  lv_anim_start(&a);
+}
+
+static void bot_bob_start() {   // gentle vertical "breathing" — translate only (no layer), forever
+  lv_anim_t a; lv_anim_init(&a);
+  lv_anim_set_var(&a, g_bot_body);
+  lv_anim_set_exec_cb(&a, bot_bodyy_exec);
+  lv_anim_set_values(&a, -5, 5);
+  lv_anim_set_duration(&a, 1600);
+  lv_anim_set_reverse_duration(&a, 1600);
+  lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+  lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+  lv_anim_start(&a);
+}
+static void bot_blink_start() {  // slow blink every ~2.8 s: a quick height squash→open on both eyes
+  lv_anim_t a; lv_anim_init(&a);
+  lv_anim_set_var(&a, &g_bot_eye_phase);
+  lv_anim_set_exec_cb(&a, bot_eyes_exec);
+  lv_anim_set_values(&a, EYE_OPEN, EYE_SHUT);
+  lv_anim_set_duration(&a, 90);
+  lv_anim_set_reverse_duration(&a, 110);
+  lv_anim_set_delay(&a, 1600);
+  lv_anim_set_repeat_delay(&a, 2800);
+  lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+  lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+  lv_anim_start(&a);
+}
+static void bot_chest_glow(lv_anim_t *) {   // after the beep, settle into a soft "alive" chest pulse
+  if (!g_bot_shown || !g_bot_chest) return;
+  lv_anim_t a; lv_anim_init(&a);
+  lv_anim_set_var(&a, g_bot_chest);
+  lv_anim_set_exec_cb(&a, bot_chest_exec);
+  lv_anim_set_values(&a, 150, 235);
+  lv_anim_set_duration(&a, 1200);
+  lv_anim_set_reverse_duration(&a, 1200);
+  lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+  lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+  lv_anim_start(&a);
+}
+static void bot_rise_done(lv_anim_t *) { if (g_bot_shown) bot_bob_start(); }   // rise → idle bob
+static void bot_wake_done(lv_anim_t *) { if (g_bot_shown) bot_blink_start(); } // eyes open → blink loop
+
+static void bot_gesture_cb(lv_event_t *e);   // fwd
+
+static void bot_build() {   // built fresh each summon → the bot holds ZERO LVGL-pool memory while hidden
+  // An OPAQUE dark "stage": full-screen + fully covers the tileview, so LVGL's cover-check SKIPS drawing
+  // it (and its big glyphs) entirely. It must sit in the SAME layer as the tileview (a child of the active
+  // screen, not lv_layer_top) for that skip to apply — otherwise the screen renders independently and its
+  // glyph buffers overflow the 64 KB LVGL pool, which this config turns into a hang. Opaque also looks clean.
+  g_bot = lv_obj_create(lv_screen_active());
+  lv_obj_set_size(g_bot, UI_W, UI_H);
+  lv_obj_center(g_bot);
+  lv_obj_set_style_bg_color(g_bot, C_BG, 0);
+  lv_obj_set_style_bg_opa(g_bot, LV_OPA_COVER, 0);
+  lv_obj_set_style_border_width(g_bot, 0, 0);
+  lv_obj_set_style_pad_all(g_bot, 0, 0);
+  lv_obj_remove_flag(g_bot, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_add_flag(g_bot, LV_OBJ_FLAG_CLICKABLE);      // catch swipe (gesture) + tap (click) to dismiss
+  lv_obj_add_event_cb(g_bot, bot_gesture_cb, LV_EVENT_GESTURE, nullptr);
+  lv_obj_add_event_cb(g_bot, bot_gesture_cb, LV_EVENT_CLICKED, nullptr);
+
+  lv_obj_t *b = lv_obj_create(g_bot);          // the bot group — moves as one via translate
+  g_bot_body = b;
+  lv_obj_set_size(b, BOT_W, BOT_H);
+  lv_obj_center(b);
+  lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(b, 0, 0);
+  lv_obj_set_style_pad_all(b, 0, 0);
+  lv_obj_remove_flag(b, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_remove_flag(b, LV_OBJ_FLAG_CLICKABLE);
+
+  bot_draw(b, 100, false, g_bot_eye, &g_bot_chest);   // the whole guy, full size
+}
+
+bool ui_bot_show() {
+  // Reject a re-summon while shown AND while a previous dismissal is still tearing down: g_bot stays
+  // non-null for the whole show+exit lifetime (nulled only in bot_destroy). Rebuilding mid-exit would
+  // let the old exit chain delete the NEW objects and orphan the old opaque stage (a dead black screen).
+  if (g_bot_shown || g_bot) return false;
+  g_bot_shown = true;
+  bot_build();                        // fresh build; destroyed on hide → no idle footprint
+  lv_obj_set_style_translate_y(g_bot_body, BOT_RISE, 0);   // start low + eyes shut, then spring up + wake
+  bot_eyes_exec(nullptr, EYE_SHUT);
+  lv_obj_move_foreground(g_bot);                          // above any modal/toast
+
+  bot_anim(g_bot_body, bot_bodyy_exec, BOT_RISE, 0, 580, lv_anim_path_overshoot, 0, bot_rise_done);  // spring up
+  bot_anim(&g_bot_eye_phase, bot_eyes_exec, EYE_SHUT, EYE_OPEN, 420, lv_anim_path_overshoot, 220, bot_wake_done);  // wake
+  // "beep-bop-bop-beep": the chest light flashes 4× on arrival, then settles into the soft pulse
+  lv_anim_t c; lv_anim_init(&c);
+  lv_anim_set_var(&c, g_bot_chest);
+  lv_anim_set_exec_cb(&c, bot_chest_exec);
+  lv_anim_set_values(&c, 255, 70);
+  lv_anim_set_duration(&c, 130);
+  lv_anim_set_reverse_duration(&c, 130);
+  lv_anim_set_delay(&c, 360);
+  lv_anim_set_repeat_count(&c, 4);
+  lv_anim_set_path_cb(&c, lv_anim_path_ease_in_out);
+  lv_anim_set_completed_cb(&c, bot_chest_glow);
+  lv_anim_start(&c);
+  return true;
+}
+
+// stop every looping idle anim (leaves the bot standing still, ready for an exit move)
+static void bot_stop_idle() {
+  lv_anim_delete(g_bot_body, bot_bodyy_exec);
+  lv_anim_delete(&g_bot_eye_phase, bot_eyes_exec);
+  lv_anim_delete(g_bot_chest, bot_chest_exec);
+}
+// exit, step 2: stage fade done → delete EVERYTHING (frees the scrim + all bot objects → 0 pool while away)
+static void bot_destroy(lv_anim_t *) {
+  lv_anim_delete(&g_bot_eye_phase, NULL);   // token anim isn't tied to an object → cancel explicitly
+  if (g_bot) lv_obj_delete(g_bot);
+  g_bot = g_bot_body = g_bot_chest = nullptr;
+  g_bot_eye[0] = g_bot_eye[1] = nullptr;
+}
+// exit, step 1 done (bot slid off the dark stage) → hide it, then fade the stage out so the screen returns.
+// The bot is hidden before the fade so only the (light) screen draws while the stage is semi-transparent.
+static void bot_exit_fade(lv_anim_t *) {
+  if (g_bot_body) lv_obj_add_flag(g_bot_body, LV_OBJ_FLAG_HIDDEN);
+  bot_anim(g_bot, bot_scrim_exec, LV_OPA_COVER, 0, 260, lv_anim_path_ease_out, 0, bot_destroy);
+}
+
+// converge all dismiss paths here. dir = swipe direction (LV_DIR_NONE → drop-down default exit).
+static void bot_dismiss(lv_dir_t dir) {
+  if (!g_bot_shown) return;
+  g_bot_shown = false;
+  bot_stop_idle();
+  if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {       // swiped off sideways
+    bot_anim(g_bot_body, bot_bodyx_exec, 0, dir == LV_DIR_LEFT ? -UI_W : UI_W, 300, lv_anim_path_ease_in, 0, bot_exit_fade);
+  } else if (dir == LV_DIR_TOP) {                         // swiped up
+    bot_anim(g_bot_body, bot_bodyy_exec, 0, -UI_H, 300, lv_anim_path_ease_in, 0, bot_exit_fade);
+  } else {   // tap / 15 s timer / second shake → close the eyes and drop off the bottom
+    bot_anim(&g_bot_eye_phase, bot_eyes_exec, EYE_OPEN, EYE_SHUT, 180, lv_anim_path_ease_in, 0, nullptr);
+    bot_anim(g_bot_body, bot_bodyy_exec, 0, UI_H, 340, lv_anim_path_ease_in, 0, bot_exit_fade);
+  }
+}
+
+static void bot_gesture_cb(lv_event_t *e) {
+  if (!g_bot_shown) return;                         // already exiting (guards GESTURE+CLICKED double-fire)
+  lv_dir_t dir = LV_DIR_NONE;                        // a tap → default exit
+  if (lv_event_get_code(e) == LV_EVENT_GESTURE)
+    dir = lv_indev_get_gesture_dir(lv_indev_active());
+  bot_dismiss(dir);
+  if (g_bot_dismiss_cb) g_bot_dismiss_cb();          // let firmware cancel its auto-hide timer
+}
+
+void ui_bot_hide() { bot_dismiss(LV_DIR_NONE); }     // firmware's auto-hide / second-shake path
+void ui_bot_set_dismiss_cb(void (*cb)(void)) { g_bot_dismiss_cb = cb; }
+bool ui_bot_visible() { return g_bot_shown; }
 
 lv_obj_t *ui_build_splash(const char *version) {
   lv_obj_t *scr = lv_obj_create(NULL);
