@@ -17,6 +17,7 @@
 #include "app_time.h"
 #include "app_view.h"
 #include "app_diag.h"
+#include "app_imu.h"
 #include "app_config.h"
 #include "app_settings.h"
 #include <Preferences.h>
@@ -118,6 +119,13 @@ static void splash_to_main(lv_timer_t *t) {
   lv_timer_delete(t);
 }
 
+// ── Shake-to-summon Claude bot (#31) ─────────────────────────────────────────
+// app_imu detects a deliberate shake; we toggle the easter-egg bot, play its jingle, and arm a 15 s
+// auto-hide. A swipe/tap dismiss in the UI calls bot_dismissed() so our timer can't re-fire on a
+// bot that's already gone. All dismiss paths (2nd shake / swipe / tap / 15 s) end with it hidden.
+static uint32_t g_bot_hide_at = 0;                   // millis() auto-hide deadline (0 = not shown by us)
+static void bot_dismissed() { g_bot_hide_at = 0; }   // UI swipe/tap dismissed it → cancel our timer
+
 void setup() {
   Serial.begin(115200);
   Wire.begin(I2C_SDA, I2C_SCL);
@@ -153,6 +161,7 @@ void setup() {
 
   g_main_scr = lv_obj_create(NULL);
   ui_build(g_main_scr);
+  ui_bot_set_dismiss_cb(bot_dismissed);   // #31: UI swipe/tap dismiss → cancel our auto-hide timer
   ui_goto(2);   // start on the Clock screen (shows CONNECTING while WiFi comes up; usage screens blank until data)
 
   // Boot splash only when the firmware version changed since last boot (stored in NVS).
@@ -175,8 +184,9 @@ void setup() {
   audio_begin(); // ES8311 chimes (F5)
   audio_chime_reset();  // soft boot chime — confirms audio works
   time_begin();  // NTP + RTC (F6)
+  imu_begin();   // QMI8658 IMU — shake-to-summon the bot easter egg (#31); Wire already up above
   g_last_activity_ms = millis();   // start the idle-dim clock now (don't dim during boot)
-  Serial.println("[net+web+data+audio+time] started");
+  Serial.println("[net+web+data+audio+time+imu] started");
   diag_begin();    // dev-time serial diagnostics: reset reason + I2C scan + log-error counter
 }
 
@@ -186,6 +196,19 @@ void loop() {
   web_handle();
   data_loop();
   time_loop();
+
+  // Shake-to-summon the Claude bot easter egg (#31). Reset the idle clock first so this same tick's
+  // view_tick treats the shake as activity → wakes the #6 sleeper; un-dims the backlight too.
+  if (imu_poll_shake()) {
+    g_last_activity_ms = millis();
+    if (ui_bot_visible()) { ui_bot_hide(); g_bot_hide_at = 0; }              // a second shake dismisses
+    else if (ui_bot_show()) { audio_chime_bot(); g_bot_hide_at = millis() + 15000; }  // real summon → jingle + 15 s timer
+    // (ui_bot_show() returns false if a previous dismissal is still tearing down → no chime, no orphaned stage)
+  }
+  if (g_bot_hide_at && (int32_t)(millis() - g_bot_hide_at) >= 0) {           // 15 s auto-hide
+    if (ui_bot_visible()) ui_bot_hide();
+    g_bot_hide_at = 0;
+  }
 
   view_tick(millis() - g_last_activity_ms);   // 1Hz data -> UI; pass touch-idle for sleep mode (#6)
   update_backlight();  // live brightness + dim-on-idle

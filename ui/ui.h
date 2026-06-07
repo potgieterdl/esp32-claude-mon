@@ -35,6 +35,24 @@ void ui_set_clock_reset(const char *next_reset);   // Clock screen "next reset .
 // has been idle long enough. Tears down the Zzz animation when off → no render cost when awake.
 void ui_set_sleeping(bool sleeping);
 
+// Easter-egg awake bot (#31): a large, charming Claude bot springs up on an opaque dark stage, opens
+// its eyes, "beeps", then gently bobs + slow-blinks. The stage is parented to the active screen (NOT
+// lv_layer_top) and fully covers the tileview, so the screen behind isn't re-rendered — and the bot
+// is built on show / destroyed on hide → zero LVGL-pool footprint while away. Every animation is
+// TRANSFORM-FREE (translate / height / opacity); see ADR-0007 for why (the scale path hangs here).
+//   ui_bot_show()  — summon. Returns true if it actually summoned; false (no-op) if already shown OR
+//                    a previous dismissal is still tearing down — so the caller only chimes on a real
+//                    summon and can't orphan the stage by rebuilding mid-exit.
+//   ui_bot_hide()  — dismiss with a drop-down exit; no-op if not shown.
+//   ui_bot_set_dismiss_cb(cb) — fires when the user SWIPES/taps the bot away (the UI runs the
+//                    slide-off exit itself; firmware uses the cb to cancel its auto-hide timer).
+//   ui_bot_visible() — true while shown (the interactive phase); firmware reads it so a second shake
+//                    toggles the bot off.
+bool ui_bot_show();
+void ui_bot_hide();
+void ui_bot_set_dismiss_cb(void (*cb)(void));
+bool ui_bot_visible();
+
 // Boot splash (Concept A): builds on its OWN screen (coral ring sweep + version fade-in).
 // Caller loads it, then transitions to the main screen after ~5s. Returns the screen obj.
 lv_obj_t *ui_build_splash(const char *version);

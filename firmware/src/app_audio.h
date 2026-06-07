@@ -14,4 +14,5 @@ void audio_begin();        // init I2S + ES8311 at low volume; start the player 
 void audio_chime_warn();   // soft 2-note rising chime — usage crossed >=70%
 void audio_chime_reset();  // gentle single low note — 100% / window reset
 void audio_chime_alert();  // bright, LOUDER rising triad — Claude Code "needs input" (issue #2)
+void audio_chime_bot();    // playful robotic "beep-bop-bop-beep" — shake-to-summon easter egg (#31)
 bool audio_ready();        // true once the codec + task initialised ok

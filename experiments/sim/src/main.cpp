@@ -185,6 +185,24 @@ int main(int argc, char **argv) {
   dump_at(outdir, "19_clock_sleeping_b.png");
   ui_set_sleeping(false);
 
+  // Awake-bot easter-egg pass (#31): summon the bot over the Clock and sample the spring-up entrance
+  // (rise + overshoot, eyes wake open, beep mouth), a settled hero frame, idle, a blink, then exit.
+  ui_set_online(true, false);
+  ui_set_clock("14:32", "THU 5 JUN");
+  ui_goto(2);
+  settle(200);
+  ui_bot_show();
+  {
+    const int   dt[]    = { 60, 120, 130, 140, 170, 280, 1000, 380 };
+    const char *nm[]    = { "21_bot_rise_a.png", "22_bot_rise_b.png", "23_bot_rise_c.png",
+                            "24_bot_overshoot.png", "25_bot_settle.png", "26_bot_beep.png",
+                            "27_bot_idle.png", "28_bot_blink.png" };
+    for (int i = 0; i < 8; i++) { settle(dt[i]); dump_at(outdir, nm[i]); }
+    ui_bot_hide();
+    settle(170); dump_at(outdir, "29_bot_exit_a.png");
+    settle(220); dump_at(outdir, "30_bot_exit_b.png");
+  }
+
   // Notification pass: the "token needed" prompt, the "input needed" banner (issue #2), a toast, and
   // the "received ✓" ack modal. (The ack modal renders LAST — it can't be dismissed without a tap,
   // so the passive previews, incl. the input banner, must come before it.)

@@ -38,6 +38,9 @@ First-time setup prompts on the device, and confirms when the token syncs:
   the display gently drifts to the Clock with a small **sleeping Claude bot** (drifting "Zzz"); a fresh
   session wakes it straight back to Session, and a touch nudges it awake. Timeout is configurable
   (`display.sleep_after_s`; `0` = never sleep).
+- **Shake to summon** — give the device a shake and a big, friendly **Claude bot** springs up, opens its
+  eyes and plays a soft "beep-bop-bop-beep" — the same little guy who dozes on the Clock when idle, now
+  wide awake. Shake again, swipe him off, or just wait and he heads back to bed. (Uses the on-board IMU.)
 - **WiFi** — auto-(re)connects in the background to reach Anthropic; survives drops without nuking the screen.
 - **Smooth UI on a single core** — fluid swipes/animations via **LovyanGFX async-DMA + double buffering at
   80 MHz SPI**, getting the most out of the single-core ESP32-C6.

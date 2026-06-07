@@ -28,7 +28,7 @@ static es8311_handle_t s_es = nullptr;
 static QueueHandle_t  s_queue = nullptr;
 static volatile bool  s_ready = false;
 
-enum chime_id_t { CHIME_WARN = 1, CHIME_RESET = 2, CHIME_ALERT = 3 };
+enum chime_id_t { CHIME_WARN = 1, CHIME_RESET = 2, CHIME_ALERT = 3, CHIME_BOT = 4 };
 
 // Largest note we ever synthesise (ms) -> size the scratch buffer for it.
 #define MAX_NOTE_MS   320
@@ -87,6 +87,16 @@ static void play_chime(chime_id_t id) {
     play_silence(30);
     play_note(1318.51f, 240, ALERT_AMPLITUDE);
     es8311_voice_volume_set(s_es, VOICE_VOLUME, NULL);   // restore the soft default
+  } else if (id == CHIME_BOT) {
+    // shake-to-summon easter egg (#31): a playful robotic "beep-bop-bop-beep" — soft, octave-
+    // alternating (B5/B4), ~1 s, played once as the Claude bot springs in.
+    play_note(987.77f, 110, TONE_AMPLITUDE);   // beep (B5)
+    play_silence(45);
+    play_note(493.88f, 120, TONE_AMPLITUDE);   // bop  (B4)
+    play_silence(45);
+    play_note(493.88f, 120, TONE_AMPLITUDE);   // bop  (B4)
+    play_silence(45);
+    play_note(987.77f, 140, TONE_AMPLITUDE);   // beep (B5)
   } else { // CHIME_RESET
     // gentle single low note (E4)
     play_note(329.63f, 300, TONE_AMPLITUDE);
@@ -161,4 +171,5 @@ static void enqueue(chime_id_t id) {
 void audio_chime_warn()  { enqueue(CHIME_WARN); }
 void audio_chime_reset() { enqueue(CHIME_RESET); }
 void audio_chime_alert() { enqueue(CHIME_ALERT); }
+void audio_chime_bot()   { enqueue(CHIME_BOT); }
 bool audio_ready()       { return s_ready; }
