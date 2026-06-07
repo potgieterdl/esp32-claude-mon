@@ -22,7 +22,7 @@
 static lv_obj_t *g_sess_ring = nullptr, *g_sess_pct = nullptr, *g_sess_wk_bar = nullptr, *g_sess_at = nullptr;
 static lv_obj_t *g_sess_badge = nullptr;   // Session-screen plan pill (MAX 5X / MAX 20X / PRO), wired to data_plan()
 static lv_obj_t *g_sess_wk_pct = nullptr;   // Session-screen weekly-% label (was a discarded handle → froze at mock 41%)
-static lv_obj_t *g_wk_ring = nullptr, *g_wk_pct = nullptr;
+static lv_obj_t *g_wk_ring = nullptr, *g_wk_pct = nullptr, *g_wk_reset = nullptr;
 static lv_obj_t *g_clock_time = nullptr, *g_clock_date = nullptr, *g_clock_next = nullptr;
 static lv_obj_t *g_status_dots[4];
 static int       g_status_dot_n = 0;
@@ -172,8 +172,8 @@ static void build_weekly(lv_obj_t *t) {
   lv_obj_align_to(pct, ring, LV_ALIGN_CENTER, 0, -6);
   lv_obj_t *of = mklabel(t, "OF WEEKLY", &lv_font_montserrat_12, C_DIM);
   lv_obj_align_to(of, ring, LV_ALIGN_CENTER, 0, 16);
-  lv_obj_t *cap = mklabel(t, "RESETS MON 09:00", &lv_font_montserrat_12, C_DIM);
-  lv_obj_align(cap, LV_ALIGN_BOTTOM_LEFT, 16, -22);
+  g_wk_reset = mklabel(t, "RESETS --", &lv_font_montserrat_12, C_DIM);   // real day/time fed from the usage epoch
+  lv_obj_align(g_wk_reset, LV_ALIGN_BOTTOM_LEFT, 16, -22);
 
   lv_obj_t *col = lv_obj_create(t); plain(col);
   lv_obj_set_size(col, 132, 184);
@@ -409,6 +409,19 @@ void ui_set_weekly(int p, long secs_left) {
   }
 }
 
+// Weekly reset caption, derived from the real usage epoch by the presenter (e.g. "MON 09:00").
+// Empty/blank -> "RESETS --" (honest display: no guessed day when there's no data).
+void ui_set_weekly_reset(const char *when) {
+  if (!g_wk_reset) return;
+  if (when && when[0]) {
+    char b[24];
+    snprintf(b, sizeof b, "RESETS %s", when);
+    lv_label_set_text(g_wk_reset, b);
+  } else {
+    lv_label_set_text(g_wk_reset, "RESETS --");
+  }
+}
+
 // Blank every live Claude figure to "--" / empty rings. Called by the presenter when we're
 // offline or have no fresh data, so the device never shows stale or placeholder usage numbers.
 void ui_clear_usage() {
@@ -422,6 +435,7 @@ void ui_clear_usage() {
   if (g_sess_at)     lv_label_set_text(g_sess_at, "");
   if (g_wk_ring)     lv_arc_set_value(g_wk_ring, 0);
   if (g_wk_pct)      lv_label_set_text(g_wk_pct, "--");
+  ui_set_weekly_reset(nullptr);   // -> "RESETS --" (reuse the setter; single source for the blank)
   if (g_clock_next)  lv_label_set_text(g_clock_next, "");   // Clock screen "next reset" is session data too
   if (g_countdown)   lv_obj_set_style_text_opa(g_countdown, LV_OPA_COVER, 0);  // un-fade (may have been idle)
   s_sess_shown = s_wk_shown = -1;

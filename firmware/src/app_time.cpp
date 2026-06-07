@@ -65,3 +65,9 @@ void time_fmt_hm(uint32_t epoch, char *out, size_t n) {
   strftime(out, n, "%I:%M %p", &lt);
   if (out[0] == '0') memmove(out, out + 1, strlen(out));   // "04:30 PM" -> "4:30 PM"
 }
+
+void time_fmt_day_hm(uint32_t epoch, char *out, size_t n) {
+  time_t t = (time_t)epoch; struct tm lt; localtime_r(&t, &lt);
+  strftime(out, n, "%a %H:%M", &lt);                       // "Mon 09:00"
+  for (char *p = out; *p; ++p) *p = toupper((unsigned char)*p);   // -> "MON 09:00"
+}

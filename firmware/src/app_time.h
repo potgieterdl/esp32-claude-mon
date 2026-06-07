@@ -12,3 +12,4 @@ uint32_t time_now();     // current epoch seconds (UTC), 0 if unknown
 void time_fmt_clock(char *out, size_t n);                 // local "HH:MM"
 void time_fmt_date(char *out, size_t n);                  // local "WED 04 JUN 2026"
 void time_fmt_hm(uint32_t epoch, char *out, size_t n);    // local "4:30 PM" for an epoch
+void time_fmt_day_hm(uint32_t epoch, char *out, size_t n);// local "MON 09:00" for an epoch (weekly reset day)

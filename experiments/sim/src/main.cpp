@@ -113,6 +113,7 @@ int main(int argc, char **argv) {
   ui_set_plan("MAX 5X");
   ui_set_session(fh, 9000, "at 4:30 PM");        // ~2.5 h countdown + reset time
   ui_set_weekly(wk, -1);
+  ui_set_weekly_reset("MON 09:00");   // weekly reset caption (real day/time on-device; mocked here)
   ui_set_clock("14:32", "THU 5 JUN");
   ui_set_clock_reset("next reset 4:30 PM");
   ui_set_device("home-wifi", "192.168.1.42", "-54 dBm", "86%", "131 KB", "1.8.0");  // fake LAN details

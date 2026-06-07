@@ -21,7 +21,7 @@ Swipe between four screens (rendered from the desktop simulator):
 - **Honest display** that blanks to `--` when offline rather than showing stale or made-up numbers.
 - **Idle sleep**: a small Claude bot dozes on the clock when no session is active.
 - **Shake to summon**: give the device a shake and a friendly Claude bot pops up, blinks and beeps.
-- **Audio alerts**: soft chimes when you cross a usage threshold.
+- **Audio alerts**: soft chimes when you cross a usage threshold — mute all chimes or set their volume in `config.json` (or live over the LAN).
 - **"Needs input" alerts**: a Claude Code hook lights the screen when a session is waiting on you. [Set it up](docs/claude-code-hooks/README.md).
 - **Updates** over WiFi (OTA) or USB, plus live settings over the LAN with no reflash.
 

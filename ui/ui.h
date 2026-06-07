@@ -25,6 +25,7 @@ void ui_set_session(int five_hour_pct, long secs_left, const char *reset_at);  /
 void ui_set_session_idle(int five_hour_pct);  // no active 5h window: faded "--:--" + "No current session"
 void ui_set_plan(const char *label);   // Session plan badge text (e.g. "MAX 5X" / "MAX 20X" / "PRO")
 void ui_set_weekly(int weekly_pct, long secs_left);
+void ui_set_weekly_reset(const char *when);   // Weekly reset caption from the usage epoch (e.g. "MON 09:00"; "" -> "RESETS --")
 void ui_set_online(bool online, bool stale);   // top-bar status dot color
 void ui_clear_usage();   // blank Session/Weekly figures to "--" when offline / no data (honest display)
 void ui_set_clock(const char *time_str, const char *date_str);  // Clock screen (F6)

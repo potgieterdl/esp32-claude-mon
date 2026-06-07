@@ -29,8 +29,9 @@ curl -u admin:$TOKEN -X PUT -H "Content-Type: application/json" \
      http://claude-monitor.local/config.json
 ```
 
-Configurable: WiFi, `poll_seconds`, alert thresholds (warn and max %), timezone (POSIX TZ), and display
-(brightness, dim-on-idle and its timeout, and the idle-sleep timeout `sleep_after_s`, where `0` never sleeps).
+Configurable: WiFi, `poll_seconds`, alert thresholds (warn and max %), timezone (POSIX TZ), display
+(brightness, dim-on-idle and its timeout, and the idle-sleep timeout `sleep_after_s`, where `0` never sleeps),
+and audio (`mute`, and `volume` 0-100 scaling the chimes).
 Brightness applies live; the rest apply on next use. A bad value is clamped, and a malformed body returns
 `400` without overwriting the file. The `oauth` block also lives here but is managed by the device and the
 sync script, so do not edit it by hand.

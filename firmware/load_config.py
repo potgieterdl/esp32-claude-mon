@@ -21,7 +21,7 @@ else:
     with open(cfg_path, encoding="utf-8") as f:
         cfg = json.load(f)
     wifi, dev = cfg.get("wifi", {}), cfg.get("device", {})
-    th, disp = dev.get("thresholds", {}), dev.get("display", {})
+    th, disp, au = dev.get("thresholds", {}), dev.get("display", {}), dev.get("audio", {})
 
     def S(v):  # safely stringify for a C string macro (handles quotes/specials in passwords)
         return env.StringifyMacro(str(v))
@@ -41,6 +41,8 @@ else:
     if "dim_brightness" in disp: defs.append(("CFG_DIM_BRIGHTNESS", int(disp["dim_brightness"])))
     if "dim_on_idle" in disp:    defs.append(("CFG_DIM_ON_IDLE", 1 if disp["dim_on_idle"] else 0))
     if "sleep_after_s" in disp:  defs.append(("CFG_SLEEP_AFTER_S", int(disp["sleep_after_s"])))
+    if "mute" in au:    defs.append(("CFG_AUDIO_MUTE", 1 if au["mute"] else 0))
+    if "volume" in au:  defs.append(("CFG_AUDIO_VOLUME", int(au["volume"])))
 
     env.Append(CPPDEFINES=defs)
     print(f"[load_config] {os.path.relpath(cfg_path, proj)} -> injected {len(defs)} settings "
