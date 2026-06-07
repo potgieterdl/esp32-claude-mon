@@ -25,7 +25,8 @@ Swipe between four screens (rendered from the desktop simulator):
 - **"Needs input" alerts**: a Claude Code hook lights the screen when a session is waiting on you. [Set it up](docs/claude-code-hooks/README.md).
 - **Updates** over WiFi (OTA) or USB, plus live settings over the LAN with no reflash.
 
-Runtime settings, the web API and the desktop simulator are documented in the [wiki][wiki].
+Runtime settings and the web API are in [`docs/web-api.md`](docs/web-api.md), and you can preview the UI on
+your computer with the [desktop simulator](docs/simulator.md).
 
 ## How it works
 You log in once on your own machine and run a single script. It securely syncs an OAuth token to the device,
@@ -69,7 +70,8 @@ USB-C **data** cable.
    ```
 
 That is it. The device boots to the clock, joins your WiFi, and slides to your live usage once the token lands.
-After the first USB flash you can update wirelessly over OTA; the [wiki][wiki] covers OTA and rollback.
+After the first USB flash you can update wirelessly over OTA; [`docs/web-api.md`](docs/web-api.md) covers OTA
+and rollback.
 
 **Hardware:** Waveshare ESP32-C6-Touch-LCD-1.69. The pinout, quirks and the portable multi-board design live in
 [`docs/multi-board-architecture.md`](docs/multi-board-architecture.md) and the
@@ -110,6 +112,4 @@ pre-build script into compile-time defines. Before pushing, check that nothing s
 | `CLAUDE.md` | Developer workflow and flashing recipes. |
 
 ## More
-[Architecture](docs/ARCHITECTURE.md) · [decisions](adr/README.md) · [board spec](boards/esp32c6/esp32-c6-touch-lcd-1.69/SPEC.md) · [roadmap](https://github.com/potgieterdl/esp32-claude-mon/issues) · [wiki][wiki] · [developer guide](CLAUDE.md)
-
-[wiki]: https://github.com/potgieterdl/esp32-claude-mon/wiki
+[Architecture](docs/ARCHITECTURE.md) · [web API & settings](docs/web-api.md) · [decisions](adr/README.md) · [board spec](boards/esp32c6/esp32-c6-touch-lcd-1.69/SPEC.md) · [roadmap](https://github.com/potgieterdl/esp32-claude-mon/issues) · [developer guide](CLAUDE.md)
