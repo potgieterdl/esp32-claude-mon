@@ -41,6 +41,12 @@
 #ifndef CFG_SLEEP_AFTER_S
 #define CFG_SLEEP_AFTER_S 300   // 5 min idle+untouched -> Clock "sleep mode" (#6); 0 = never
 #endif
+#ifndef CFG_AUDIO_MUTE
+#define CFG_AUDIO_MUTE    0     // chimes on by default
+#endif
+#ifndef CFG_AUDIO_VOLUME
+#define CFG_AUDIO_VOLUME  100   // master chime volume scale (0..100); 100 = unchanged
+#endif
 #define CONFIG_PATH       "/config.json"
 
 static AppSettings g;
@@ -53,6 +59,7 @@ static void clamp_all() {
   g.dim_brightness = clamp_pct(g.dim_brightness);
   g.warn_pct       = clamp_pct(g.warn_pct);
   g.max_pct        = clamp_pct(g.max_pct);
+  g.audio_volume   = clamp_pct(g.audio_volume);
   if (g.poll_seconds < 10)   g.poll_seconds = 10;     // don't hammer the usage API
   if (g.poll_seconds > 3600) g.poll_seconds = 3600;
   if (g.dim_after_s < 3)     g.dim_after_s = 3;
@@ -82,6 +89,8 @@ static void seed_defaults() {
   g.dim_after_s    = CFG_DIM_AFTER_S;
   g.dim_brightness = CFG_DIM_BRIGHTNESS;
   g.sleep_after_s  = CFG_SLEEP_AFTER_S;
+  g.audio_mute     = CFG_AUDIO_MUTE;
+  g.audio_volume   = CFG_AUDIO_VOLUME;
   clamp_all();
 }
 
@@ -109,6 +118,11 @@ static void merge(JsonObjectConst o) {
       if (disp["dim_after_s"].is<int>())    g.dim_after_s    = disp["dim_after_s"].as<int>();
       if (disp["dim_brightness"].is<int>()) g.dim_brightness = disp["dim_brightness"].as<int>();
       if (disp["sleep_after_s"].is<int>())  g.sleep_after_s  = disp["sleep_after_s"].as<int>();
+    }
+    JsonObjectConst au = d["audio"];
+    if (!au.isNull()) {
+      if (au["mute"].is<bool>())  g.audio_mute   = au["mute"].as<bool>();
+      if (au["volume"].is<int>()) g.audio_volume = au["volume"].as<int>();
     }
   }
   // OAuth token blob (top-level "oauth", snake_case) — written by claude_token_sync.js (PUT) and
@@ -143,6 +157,9 @@ static void build_json(JsonDocument &doc) {
   disp["dim_after_s"]    = g.dim_after_s;
   disp["dim_brightness"] = g.dim_brightness;
   disp["sleep_after_s"]  = g.sleep_after_s;
+  JsonObject au = d["audio"].to<JsonObject>();
+  au["mute"]   = g.audio_mute;
+  au["volume"] = g.audio_volume;
   JsonObject oa = doc["oauth"].to<JsonObject>();
   oa["access_token"]    = g.oauth_access;
   oa["refresh_token"]   = g.oauth_refresh;

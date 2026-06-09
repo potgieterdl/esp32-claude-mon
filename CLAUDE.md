@@ -150,7 +150,7 @@ curl.exe -s "http://$ip/"   # verify: page shows "Firmware: <new version>"
 
 ## Config & settings
 **One file: the repo-root `config.json`** (gitignored; `config.example.json` is the template) holds
-`wifi` {ssid,pass}, `device` {token, poll_seconds, tz, thresholds, display}, and an `oauth` block
+`wifi` {ssid,pass}, `device` {token, poll_seconds, tz, thresholds, display, audio}, and an `oauth` block
 {access_token, refresh_token, expires_at, rate_limit_tier}. **No `proxy` section.** `device.token` is the
 basic-auth password for the device's web endpoints (`/config.json`, `/status`, OTA `/update`) and for the
 sync script — it is *not* a proxy token. The `oauth` block is written by `claude_token_sync.js` (and rotated

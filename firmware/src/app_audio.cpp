@@ -3,6 +3,7 @@
 #include "ESP_I2S.h"
 #include "Wire.h"
 #include "es8311.h"
+#include "app_settings.h"
 
 #include <math.h>
 
@@ -68,8 +69,17 @@ static void play_silence(uint16_t ms) {
   s_i2s.write((uint8_t *)s_tone, n * sizeof(int16_t));
 }
 
+// Scale a per-chime base codec volume (0..100) by the user's master audio volume (0..100). Read
+// live at play time so a config.json PUT takes effect on the next chime. 100 => unchanged.
+static int scaled_vol(int base) {
+  int v = base * settings().audio_volume / 100;
+  return v < 0 ? 0 : (v > 100 ? 100 : v);
+}
+
 static void play_chime(chime_id_t id) {
-  // Unmute only while playing, then mute again to silence amplifier hiss.
+  // Honour the user's volume setting (master scale over the per-chime base level). Unmute only
+  // while playing, then mute again to silence amplifier hiss.
+  es8311_voice_volume_set(s_es, scaled_vol(id == CHIME_ALERT ? ALERT_VOLUME : VOICE_VOLUME), NULL);
   es8311_voice_mute(s_es, false);
 
   if (id == CHIME_WARN) {
@@ -80,13 +90,11 @@ static void play_chime(chime_id_t id) {
   } else if (id == CHIME_ALERT) {
     // "Needs input" (#2): a bright rising triad (A5 -> C#6 -> E6), louder than the soft usage
     // chimes (codec volume + digital amplitude both bumped) so a waiting session is hard to miss.
-    es8311_voice_volume_set(s_es, ALERT_VOLUME, NULL);
     play_note(880.00f,  150, ALERT_AMPLITUDE);
     play_silence(30);
     play_note(1108.73f, 150, ALERT_AMPLITUDE);
     play_silence(30);
     play_note(1318.51f, 240, ALERT_AMPLITUDE);
-    es8311_voice_volume_set(s_es, VOICE_VOLUME, NULL);   // restore the soft default
   } else if (id == CHIME_BOT) {
     // shake-to-summon easter egg (#31): a playful robotic "beep-bop-bop-beep" — soft, octave-
     // alternating (B5/B4), ~1 s, played once as the Claude bot springs in.
@@ -164,6 +172,7 @@ void audio_begin() {
 
 static void enqueue(chime_id_t id) {
   if (!s_ready) return;
+  if (settings().audio_mute) return;   // user muted all chimes (config.json / live PUT)
   uint8_t v = (uint8_t)id;
   xQueueSend(s_queue, &v, 0);   // non-blocking: drop if queue full
 }

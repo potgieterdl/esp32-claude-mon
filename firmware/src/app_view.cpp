@@ -119,6 +119,10 @@ void view_tick(uint32_t input_idle_ms) {
     else
       ui_set_session(fh_pct, fh_secs, at);         // live countdown (or "--:--" when secs_left < 0)
     ui_set_weekly(data_weekly_pct(), data_weekly_secs_left());
+    uint32_t wr = data_weekly_resets_at();
+    char wreset[16] = "";
+    if (wr) time_fmt_day_hm(wr, wreset, sizeof wreset);   // "MON 09:00"; "" when unknown -> UI shows "RESETS --"
+    ui_set_weekly_reset(wreset);
     ui_set_clock_reset(next);                       // "" when idle → hides the Clock "next reset" line
     audio_check_usage(data_five_hour_pct());
     // Plan badge from the real tier (e.g. "max_5x" -> "MAX 5X"); skip until known.
