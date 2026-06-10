@@ -69,6 +69,8 @@ void web_begin() {
     doc["age_seconds"] = data_age_seconds();
     doc["last_error"]  = data_last_error();
     doc["free_heap"]   = (uint32_t)ESP.getFreeHeap();
+    doc["ssid"]        = net_ssid();   // network we're associated to (C6 is 2.4 GHz-only)
+    doc["rssi"]        = net_rssi();   // signal strength dBm (negative when online, 0 when offline)
     JsonObject f = doc["five_hour"].to<JsonObject>();
     f["used_pct"] = data_five_hour_pct();  f["secs_left"] = data_five_hour_secs_left();
     JsonObject w = doc["weekly"].to<JsonObject>();
