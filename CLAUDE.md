@@ -35,8 +35,9 @@ the Anthropic usage API** over CA-pinned HTTPS, with the OAuth token refreshed o
 - `experiments/sim/` — desktop simulator (native/gcc) → PNG screenshots, no hardware needed.
 - `boards/` — per-device hardware specs (one folder per board; scales to more devices).
 - `docs/` — `ARCHITECTURE.md`, schematic PDF, demo bundle; `perf-notes`/`research-notes` are historical.
-- `claude_token_sync.js` (repo root) — one-shot setup/recovery: dedicated `claude auth login` → PUTs an OAuth
-  token to `claude-monitor.local`. `vendor/` — upstream Waveshare refs (pull, don't edit).
+- `claude_token_sync.js` (repo root) — setup/recovery: reuses or refreshes a stored credential (browser
+  `claude auth login` only as a last resort) → PUTs it to `claude-monitor.local`. `vendor/` — upstream
+  Waveshare refs (pull, don't edit).
 
 ## Workflow
 - **Pull upstream first** when starting: `git -C vendor/ESP32-C6-Touch-LCD-1.69 pull`.
@@ -157,8 +158,10 @@ sync script — it is *not* a proxy token. The `oauth` block is written by `clau
 on-device on refresh), never hand-edited.
 - **Device build:** `firmware/load_config.py` (pre-build) reads `../config.json` → `CFG_*` compile defines →
   `app_settings` seed defaults. (Placeholder fallbacks let it compile with no config.json.)
-- **Token setup:** `node claude_token_sync.js` runs `claude auth login` into a dedicated dir (`~/.claude-device`,
-  so the device's token family is independent of your own login) and PUTs the token to `claude-monitor.local`.
+- **Token setup:** `node claude_token_sync.js` reuses/refreshes the freshest stored credential (device pair,
+  `~/.claude-device`, `config.json`) and PUTs it to `claude-monitor.local`; only when all are dead does it run
+  `claude auth login` into the dedicated dir (`~/.claude-device`, so the device's token family is independent
+  of your own login). `--login` forces a fresh login; `--refresh` forces a rotation.
 - **Live device settings:** the device also serves `GET/PUT http://claude-monitor.local/config.json`
   (auth `admin`/device-token) to change runtime settings (brightness, dim, thresholds…) without reflashing —
   seeded from the build defaults.
