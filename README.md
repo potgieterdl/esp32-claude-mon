@@ -106,7 +106,7 @@ pre-build script into compile-time defines. Before pushing, check that nothing s
 | `firmware/` | Device PlatformIO project (`src/` glue, `include/` config, `releases/` known-good builds). |
 | `experiments/sim/` | Desktop simulator that renders the UI to PNG, no hardware needed. |
 | `boards/` | Per-device hardware specs (one folder per board, so more boards can be added). |
-| `claude_token_sync.js` | One-shot setup script that logs in and pushes an OAuth token to the device. |
+| `claude_token_sync.js` | Token setup/recovery: reuses or refreshes a stored credential (login only if all are dead) and pushes it to the device. |
 | `adr/` | Architecture Decision Records, the *why* behind key choices. |
 | `docs/` | Architecture, hardware reference and the schematic. |
 | `CLAUDE.md` | Developer workflow and flashing recipes. |
