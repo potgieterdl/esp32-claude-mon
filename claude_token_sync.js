@@ -27,6 +27,11 @@
 //   node claude_token_sync.js --no-config              # don't record the token in config.json
 //
 // Node 20+; no npm deps (built-in fs/os/path/child_process + fetch).
+//
+// macOS note: Claude Code stores ALL logins in one shared Keychain item (no per-CLAUDE_CONFIG_DIR
+// namespacing — anthropics/claude-code#20553). The Keychain is therefore only read immediately
+// after this script's own login (never as a stored candidate), and a device login on a Mac
+// replaces your everyday credential — sign back in afterwards (the script warns about this).
 
 import fs from "node:fs";
 import os from "node:os";
@@ -84,6 +89,12 @@ function claudeLogin() {
   console.log("\nSigning in a DEDICATED device credential (separate from your everyday Claude Code).");
   console.log("A browser window will open — approve it with your Claude subscription.");
   console.log(`(login stored in ${deviceDir}, not your normal ~/.claude)\n`);
+  if (process.platform === "darwin") {
+    console.warn("⚠ macOS: Claude Code keeps ONE shared Keychain item for ALL logins (anthropics/claude-code#20553),");
+    console.warn("  so this device login will REPLACE your everyday Claude Code credential in the Keychain.");
+    console.warn("  Once the sync completes, run `claude auth login` in your normal terminal to sign back in");
+    console.warn("  (the device keeps its own copy — your re-login won't affect it).\n");
+  }
   const res = spawnSync("claude", ["auth", "login", "--claudeai"], {
     stdio: "inherit",
     shell: true,                                   // resolve claude.cmd/.ps1 on Windows
@@ -96,17 +107,30 @@ function claudeLogin() {
 }
 
 // ── the dedicated-dir credential (~/.claude-device/.credentials.json) ───────
+// File ONLY — used when gathering stored candidates. The macOS Keychain is deliberately NOT a
+// candidate source: Claude Code keeps a single shared "Claude Code-credentials" item for EVERY
+// CLAUDE_CONFIG_DIR profile (anthropics/claude-code#20553), so a stored item is just as likely
+// your everyday login — syncing it would put YOUR token family on the device, and the device's
+// first refresh would then log your everyday Claude Code out.
 function readDeviceDirCreds() {
   const file = path.join(deviceDir, ".credentials.json");
-  if (fs.existsSync(file)) return parseJson(fs.readFileSync(file, "utf8"), file);
-  if (process.platform === "darwin") {       // macOS may use the Keychain even with a custom dir
+  return fs.existsSync(file) ? parseJson(fs.readFileSync(file, "utf8"), file) : null;
+}
+
+// Read the credential RIGHT AFTER our own `claude auth login` — the one moment the shared macOS
+// Keychain item is trustworthy, because the device login we just ran is what wrote it. On darwin
+// the Keychain comes FIRST: the fresh login writes only the Keychain, so a leftover (just-declared-
+// dead) .credentials.json must not shadow it.
+function readFreshLoginCreds() {
+  if (process.platform === "darwin") {
     try {
       const out = execFileSync("security",
         ["find-generic-password", "-s", "Claude Code-credentials", "-w"], { encoding: "utf8" });
-      return JSON.parse(out);
-    } catch { /* fall through */ }
+      const creds = parseJson(out, "the Keychain credential");
+      if (creds && creds.claudeAiOauth) return creds;
+    } catch { /* fall back to the file */ }
   }
-  return null;
+  return readDeviceDirCreds();
 }
 
 // claudeAiOauth (camelCase) -> the device /config.json snake_case shape (expires_at in ms).
@@ -162,8 +186,10 @@ async function refreshCredential(cand) {
     if ([400, 401, 403].includes(r.status)) return null;         // refresh token dead (as the firmware treats it)
     throw new Error(`token endpoint returned HTTP ${r.status} — try again later.`);
   }
-  const j = await r.json();
-  if (!j.access_token) return null;
+  const j = parseJson(await r.text(), "the token endpoint response");
+  // A 200 may already have rotated the family — bail out rather than "dead, try the next one",
+  // which would replay sibling generations of a family that just moved on.
+  if (!j.access_token) throw new Error("token endpoint returned an unusable response — try again later.");
   return {
     access_token: j.access_token,
     refresh_token: j.refresh_token || cand.refresh_token,        // rotates; keep old if absent
@@ -237,18 +263,23 @@ function persistOauth(cfgPath, oauth) {
       recorded = true;
     } catch (e) { console.warn(`⚠ could not record the token in ${cfgPath} (${e.message})`); }
   }
-  // Keep the dedicated dir's copy current too (when it exists as a file), so it stays a live
-  // candidate for the next run instead of a long-consumed generation of the family.
+  // ALWAYS write the dedicated dir's copy (creating it if needed) — the one guaranteed sink,
+  // immune to --no-config and to a missing/unwritable config.json. Without it a rotation could
+  // consume the device's refresh token and leave the new pair existing only in memory (or, on
+  // macOS, only in the shared Keychain item the user is told to overwrite by re-logging in).
   const file = path.join(deviceDir, ".credentials.json");
-  if (fs.existsSync(file)) {
-    try {
-      const creds = parseJson(fs.readFileSync(file, "utf8"), file);
-      creds.claudeAiOauth = { ...(creds.claudeAiOauth || {}), accessToken: oauth.access_token,
-                              refreshToken: oauth.refresh_token, expiresAt: oauth.expires_at };
-      fs.writeFileSync(file, JSON.stringify(creds, null, 2) + "\n");
-    } catch { /* a stale record there is harmless — candidates are validated before use */ }
-  }
-  return recorded;
+  try {
+    let creds = {};
+    if (fs.existsSync(file)) {
+      try { creds = parseJson(fs.readFileSync(file, "utf8"), file); }
+      catch { /* corrupt — rebuild it; candidates are validated before use anyway */ }
+    }
+    creds.claudeAiOauth = { ...(creds.claudeAiOauth || {}), accessToken: oauth.access_token,
+                            refreshToken: oauth.refresh_token, expiresAt: oauth.expires_at };
+    fs.mkdirSync(deviceDir, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(creds, null, 2) + "\n");
+  } catch (e) { console.warn(`⚠ could not record the token in ${file} (${e.message})`); }
+  return recorded;   // true = the config.json record was written (drives the "recorded in" log)
 }
 
 // ── device access ────────────────────────────────────────────────────────────
@@ -300,8 +331,13 @@ function deviceToken(cfg) {
     }
     if (!has("--login")) console.log("→ every stored credential is dead — a fresh browser login is needed.");
     claudeLogin();
-    const oauth = credsToOauth(readDeviceDirCreds());
+    const oauth = credsToOauth(readFreshLoginCreds());
     if (!oauth) throw new Error(`no credential found in ${deviceDir} — did the subscription login complete?`);
+    // Probe before shipping it to the device — catches a scope-lacking login (and, on macOS, a
+    // stale credential masquerading as the fresh one) here instead of as 403s on the device.
+    if (!(await accessTokenWorks(oauth.access_token))) {
+      throw new Error("the fresh login can't read the usage endpoint (missing user:profile scope?) — use a normal subscription login.");
+    }
     found = { oauth, how: "new login" };
   }
 
@@ -324,4 +360,8 @@ function deviceToken(cfg) {
     throw new Error(`device returned HTTP ${r.status}: ${body.slice(0, 200)}`);
   }
   console.log(`✓ token synced to device at ${host} (${found.how}). It refreshes itself from here on.`);
+  if (found.how === "new login" && process.platform === "darwin") {
+    console.warn("⚠ reminder: this login replaced your everyday Claude Code's Keychain credential —");
+    console.warn("  run `claude auth login` in your normal terminal to sign back in.");
+  }
 })().catch((e) => { console.error("ERROR: " + e.message); process.exit(1); });
