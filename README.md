@@ -42,8 +42,9 @@ flowchart LR
     Dev -->|"polls your usage, auto-renews its own token<br/>(CA-pinned HTTPS)"| API
 ```
 
-The token script logs in to a dedicated config directory, so the device gets its own token family and renewing
-it never logs you out. See [ADR-0006](adr/0006-device-direct-oauth.md) for why the device talks to Anthropic
+The token script reuses or refreshes a stored credential when one still works; when it does need a login, it
+goes to a dedicated config directory, so the device gets its own token family and renewing it never logs you
+out. See [ADR-0006](adr/0006-device-direct-oauth.md) for why the device talks to Anthropic
 directly rather than through a proxy.
 
 ## Getting started

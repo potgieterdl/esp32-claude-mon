@@ -23,6 +23,8 @@
 //   node claude_token_sync.js --no-login               # never open a browser (fail if all dead)
 //   node claude_token_sync.js --dir ~/.claude-monitor  # use a different dedicated config dir
 //   node claude_token_sync.js --token <devicetoken>    # override the device token (device.token)
+//   node claude_token_sync.js --config <path>          # use a specific config.json
+//   node claude_token_sync.js --no-config              # don't record the token in config.json
 //
 // Node 20+; no npm deps (built-in fs/os/path/child_process + fetch).
 
@@ -56,11 +58,19 @@ const EXPIRY_SKEW_MS = 10 * 60 * 1000;   // treat an access token expiring this 
 // expires_at arrives as epoch seconds (device) or milliseconds (.credentials.json) — normalise to ms.
 const toMs = (e) => { e = Number(e) || 0; return e && e < 1e11 ? e * 1000 : e; };
 
-// fetch with one retry on connection-level failure (the device web server is known to drop a
-// first request; transient LAN/mDNS hiccups look the same). HTTP error statuses are NOT retried.
+// JSON.parse that never leaks the input into the error message — these inputs hold tokens, and
+// Node's native parse error quotes the bytes around the failure point.
+function parseJson(text, what) {
+  try { return JSON.parse(text); }
+  catch { throw new Error(`${what} is not valid JSON.`); }
+}
+
+// fetch with a bounded timeout and one retry on connection-level failure (the device web server
+// is known to drop a first request; transient LAN/mDNS hiccups look the same). HTTP error
+// statuses are NOT retried.
 async function fetchRetry(url, opts, tries = 2) {
   for (let i = 1; ; i++) {
-    try { return await fetch(url, opts); }
+    try { return await fetch(url, { signal: AbortSignal.timeout(20000), ...opts }); }
     catch (e) {
       if (i >= tries) throw e;
       await new Promise((r) => setTimeout(r, 700));
@@ -88,7 +98,7 @@ function claudeLogin() {
 // ── the dedicated-dir credential (~/.claude-device/.credentials.json) ───────
 function readDeviceDirCreds() {
   const file = path.join(deviceDir, ".credentials.json");
-  if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8"));
+  if (fs.existsSync(file)) return parseJson(fs.readFileSync(file, "utf8"), file);
   if (process.platform === "darwin") {       // macOS may use the Keychain even with a custom dir
     try {
       const out = execFileSync("security",
@@ -120,7 +130,9 @@ function credsToOauth(creds) {
 }
 
 // ── credential validation (read-only) + refresh ─────────────────────────────
-// True iff the access token works against the usage endpoint right now.
+// True iff the access token works against the usage endpoint right now. Only 401/403 mean "this
+// credential doesn't work" — a 429/5xx is the SERVICE misbehaving and throws, so a transient
+// failure is never mistaken for a dead credential (which would trigger a needless rotation).
 async function accessTokenWorks(access) {
   if (!access) return false;
   const r = await fetchRetry(USAGE_URL, {
@@ -131,7 +143,9 @@ async function accessTokenWorks(access) {
       "accept": "application/json",
     },
   });
-  return r.ok;
+  if (r.ok) return true;
+  if (r.status === 401 || r.status === 403) return false;
+  throw new Error(`usage endpoint returned HTTP ${r.status} — try again later.`);
 }
 
 // Exchange a refresh token for a fresh pair (same contract as the firmware's refreshToken()).
@@ -159,9 +173,11 @@ async function refreshCredential(cand) {
 }
 
 // Try the stored candidates newest-first: reuse a working access token as-is, refresh an expired
-// one (always refresh under --refresh), skip dead ones. Returns {oauth, how, source} or null when
-// everything is dead.
-async function findUsableCredential(candidates) {
+// one (always refresh under --refresh), skip dead ones. `persist` is called with a rotated pair
+// the moment the token endpoint returns it — the old refresh token is consumed at that point, so
+// the new pair must hit disk before ANY further call can fail. Returns {oauth, how, source} or
+// null when everything is dead.
+async function findUsableCredential(candidates, persist) {
   for (const cand of candidates) {
     const { source, ...oauth } = cand;
     if (!has("--refresh") &&
@@ -169,8 +185,13 @@ async function findUsableCredential(candidates) {
       return { oauth, how: "reused", source };
     }
     const rotated = await refreshCredential(oauth);
-    if (rotated && await accessTokenWorks(rotated.access_token)) {
-      return { oauth: rotated, how: "refreshed", source };
+    if (rotated) {
+      persist(rotated);
+      // A 200 from the token endpoint proves the chain is alive; the probe only catches a
+      // credential the USAGE endpoint won't accept (e.g. one lacking the user:profile scope).
+      if (await accessTokenWorks(rotated.access_token)) return { oauth: rotated, how: "refreshed", source };
+      console.log(`✗ stored credential (${source}) refreshes but can't read usage (missing scope?) — trying the next one.`);
+      continue;
     }
     console.log(`✗ stored credential (${source}) is dead — trying the next one.`);
   }
@@ -202,25 +223,32 @@ function resolveConfigPath() {
   return c.find((p) => fs.existsSync(p)) || c[0];
 }
 
+// Record the pair everywhere we read candidates from. Must never throw — it runs at the exact
+// moment a rotation has consumed the previous refresh token, and aborting there would strand the
+// new pair in memory; a failed write is only a warning (the other copy is still attempted).
 function persistOauth(cfgPath, oauth) {
+  let recorded = false;
   if (!has("--no-config") && cfgPath) {
-    let cfg = {};
-    if (fs.existsSync(cfgPath)) cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
-    cfg.oauth = oauth;                     // top-level oauth block (record; device is source of truth)
-    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
-    console.log(`✓ recorded in ${cfgPath}`);
+    try {
+      let cfg = {};
+      if (fs.existsSync(cfgPath)) cfg = parseJson(fs.readFileSync(cfgPath, "utf8"), cfgPath);
+      cfg.oauth = oauth;                   // top-level oauth block (record; device is source of truth)
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
+      recorded = true;
+    } catch (e) { console.warn(`⚠ could not record the token in ${cfgPath} (${e.message})`); }
   }
   // Keep the dedicated dir's copy current too (when it exists as a file), so it stays a live
   // candidate for the next run instead of a long-consumed generation of the family.
   const file = path.join(deviceDir, ".credentials.json");
   if (fs.existsSync(file)) {
     try {
-      const creds = JSON.parse(fs.readFileSync(file, "utf8"));
+      const creds = parseJson(fs.readFileSync(file, "utf8"), file);
       creds.claudeAiOauth = { ...(creds.claudeAiOauth || {}), accessToken: oauth.access_token,
                               refreshToken: oauth.refresh_token, expiresAt: oauth.expires_at };
       fs.writeFileSync(file, JSON.stringify(creds, null, 2) + "\n");
     } catch { /* a stale record there is harmless — candidates are validated before use */ }
   }
+  return recorded;
 }
 
 // ── device access ────────────────────────────────────────────────────────────
@@ -235,29 +263,33 @@ function deviceToken(cfg) {
 // ── main ────────────────────────────────────────────────────────────────────
 (async () => {
   const cfgPath = resolveConfigPath();
-  const cfg = cfgPath && fs.existsSync(cfgPath) ? JSON.parse(fs.readFileSync(cfgPath, "utf8")) : {};
+  const cfg = cfgPath && fs.existsSync(cfgPath)
+    ? parseJson(fs.readFileSync(cfgPath, "utf8"), cfgPath) : {};
   const host  = argVal("--device") || "claude-monitor.local";
   const token = deviceToken(cfg);
   const auth  = "Basic " + Buffer.from("admin:" + token).toString("base64");
   const url   = `http://${host}/config.json`;
 
-  // 1. Reach the device FIRST — fail fast before any login, and read its current token pair.
-  let deviceOauth = null;
+  // 1. Reach the device FIRST — fail fast before any login, and read its current token pair
+  // (the newest member of the rotating family). Any degraded read aborts: refreshing an OLDER
+  // local copy while the device holds a newer one replays a consumed generation of the family.
+  let devRes;
   try {
-    const r = await fetchRetry(url, { headers: { "authorization": auth } });
-    if (r.status === 401) throw new Error("device rejected the device token (HTTP 401) — check device.token.");
-    if (r.ok) deviceOauth = (await r.json()).oauth;
-    else console.warn(`⚠ device returned HTTP ${r.status} reading its config — continuing without its stored token.`);
+    devRes = await fetchRetry(url, { headers: { "authorization": auth } });
   } catch (e) {
-    if (/device rejected/.test(e.message)) throw e;
     console.error(`✗ could not reach the device at ${host} (${e.message}).`);
     console.error("  Pass --device <ip> (find it on the device's screen), or check it's on WiFi.");
     process.exit(1);
   }
+  if (devRes.status === 401) throw new Error("device rejected the device token (HTTP 401) — check device.token.");
+  if (!devRes.ok) throw new Error(`device returned HTTP ${devRes.status} reading its config — fix that first (the sync PUT would fail the same way).`);
+  const deviceOauth = parseJson(await devRes.text(), "the device's config response").oauth;
   console.log(`✓ device reachable at ${host}.`);
 
   // 2./3. Reuse or refresh a stored credential; 4. browser login only when all are dead.
-  let found = has("--login") ? null : await findUsableCredential(gatherCandidates(deviceOauth, cfg));
+  const persist = (oauth) => persistOauth(cfgPath, oauth);
+  let found = has("--login") ? null
+            : await findUsableCredential(gatherCandidates(deviceOauth, cfg), persist);
   if (found) {
     console.log(found.how === "reused"
       ? `✓ stored credential (${found.source}) still works — reusing it, no login needed.`
@@ -273,8 +305,9 @@ function deviceToken(cfg) {
     found = { oauth, how: "new login" };
   }
 
-  // 5. Persist BEFORE the PUT (a rotated pair must never exist only in flight), then sync.
-  persistOauth(cfgPath, found.oauth);
+  // 5. Persist BEFORE the PUT (a rotated pair must never exist only in flight; the refreshed
+  // path already persisted inside findUsableCredential — this re-write is a harmless no-op).
+  if (persistOauth(cfgPath, found.oauth)) console.log(`✓ recorded in ${cfgPath}`);
   let r;
   try {
     r = await fetchRetry(url, {

@@ -1,5 +1,5 @@
 {
-  "_note": "ONE setup file for the whole project. Copy to config.json (gitignored) and fill in wifi + device.token. The device firmware reads wifi + device.* at build time. The OAuth token is NOT set here by hand — run `node claude_token_sync.js` once (it does a dedicated Claude login and syncs the token to the device, recording it in the `oauth` block below). Live device settings can also be changed via PUT /config.json on the device.",
+  "_note": "ONE setup file for the whole project. Copy to config.json (gitignored) and fill in wifi + device.token. The device firmware reads wifi + device.* at build time. The OAuth token is NOT set here by hand — run `node claude_token_sync.js` once (it reuses/refreshes a stored credential — logging in to a dedicated Claude dir only when none works — and syncs the token to the device, recording it in the `oauth` block below). Live device settings can also be changed via PUT /config.json on the device.",
   "wifi": {
     "ssid": "YOUR_WIFI_SSID",
     "pass": "YOUR_WIFI_PASSWORD"
